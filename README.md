@@ -11,7 +11,7 @@ A comprehensive Neovim plugin for Laravel development that provides intelligent 
 
 ### 🎨 Blade Template Support
 - Full Blade syntax highlighting and indentation
-- Comprehensive snippet collection for Blade directives
+
 - Laravel helper function completions
 - Blade-specific file type detection
 
@@ -30,13 +30,13 @@ A comprehensive Neovim plugin for Laravel development that provides intelligent 
 - Parse and display model relationships
 - Show fillable attributes, hidden fields, and casts
 - Navigate between related models
-- Model-specific snippets for relationships, scopes, and accessors
+
 
 ### 🗄️ Migration Tools
 - Migration file navigation and analysis
 - Parse table operations and column definitions
 - Database migration command shortcuts
-- Migration-specific snippets
+
 
 ### 🎨 Clean Integration
 - Uses standard Neovim UI components for maximum compatibility
@@ -73,7 +73,7 @@ use {
 ## ⚙️ Prerequisites
 
 ### Required
-- **Neovim 0.10+** (for built-in snippet support)
+- **Neovim 0.10+**
 - **PHP 8.0+**
 - **Composer** (for Laravel projects)
 
@@ -118,27 +118,7 @@ All Laravel keymaps use the `<leader>L` prefix for better organization and to av
 #### Route Files
 - `gd` - Go to route definition (or LSP definition)
 
-### Snippets
 
-#### Blade Templates
-- `@if` → `@if($condition) ... @endif`
-- `@foreach` → `@foreach($items as $item) ... @endforeach`
-- `@extends` → `@extends('layout')`
-- `@section` → `@section('name') ... @endsection`
-- And many more Laravel Blade directives!
-
-#### PHP Models
-- `hasOne` → `public function relationName() { return $this->hasOne(Model::class); }`
-- `belongsTo` → `public function relationName() { return $this->belongsTo(Model::class); }`
-- `scope` → Query scope method
-- `mutator` → Attribute mutator
-- `accessor` → Attribute accessor
-
-#### Migrations
-- `string` → `$table->string('column_name');`
-- `foreign` → `$table->foreign('column')->references('id')->on('table');`
-- `timestamps` → `$table->timestamps();`
-- And all Laravel migration column types!
 
 ## ⚡ Smart Navigation
 

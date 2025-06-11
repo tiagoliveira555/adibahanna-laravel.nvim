@@ -43,7 +43,7 @@ _G.laravel_nvim = {
     project_root = nil,
     is_laravel_project = false,
     artisan_commands = {},
-    blade_snippets = {},
+
 }
 
 -- Initialize Laravel environment
