@@ -46,10 +46,12 @@ local function setup_php_lsp()
         return
     end
 
-    -- Check which PHP LSP server is available
+    -- Check which PHP LSP server is available (prefer Intelephense)
     local available_server = nil
-    for server_name, config in pairs(servers) do
-        if vim.fn.executable(config.cmd[1]) == 1 then
+    local preferred_order = { 'intelephense', 'phpactor' }
+
+    for _, server_name in ipairs(preferred_order) do
+        if servers[server_name] and vim.fn.executable(servers[server_name].cmd[1]) == 1 then
             available_server = server_name
             break
         end
@@ -101,13 +103,14 @@ end
 
 -- Setup built-in LSP without lspconfig
 local function setup_builtin_lsp()
-    -- Check for available PHP LSP server
+    -- Check for available PHP LSP server (prefer Intelephense)
     local server_cmd = nil
     local server_name = nil
+    local preferred_order = { 'intelephense', 'phpactor' }
 
-    for name, config in pairs(servers) do
-        if vim.fn.executable(config.cmd[1]) == 1 then
-            server_cmd = config.cmd
+    for _, name in ipairs(preferred_order) do
+        if servers[name] and vim.fn.executable(servers[name].cmd[1]) == 1 then
+            server_cmd = servers[name].cmd
             server_name = name
             break
         end

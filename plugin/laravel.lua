@@ -13,10 +13,28 @@ local function is_laravel_project()
     if root then
         -- Additional check for Laravel-specific files
         local artisan_file = root .. '/artisan'
+        local composer_file = root .. '/composer.json'
+
         if vim.fn.filereadable(artisan_file) == 1 then
             return true, root
+        elseif vim.fn.filereadable(composer_file) == 1 then
+            -- Check if composer.json contains Laravel
+            local ok, composer_content = pcall(vim.fn.readfile, composer_file)
+            if ok then
+                local content = table.concat(composer_content, '\n')
+                if content:match('"laravel/framework"') or content:match('"laravel/laravel"') then
+                    return true, root
+                end
+            end
         end
     end
+
+    -- Fallback: check current directory
+    local cwd = vim.fn.getcwd()
+    if vim.fn.filereadable(cwd .. '/artisan') == 1 then
+        return true, cwd
+    end
+
     return false, nil
 end
 
@@ -34,14 +52,18 @@ local function initialize_laravel()
     _G.laravel_nvim.is_laravel_project = is_laravel
     _G.laravel_nvim.project_root = root
 
+    -- Always setup basic components (they handle non-Laravel projects gracefully)
+    require('laravel.artisan').setup()
+    require('laravel.blade').setup()
+    require('laravel.routes').setup()
+    require('laravel.models').setup()
+    require('laravel.migrations').setup()
+    require('laravel.lsp').setup()
+
     if is_laravel then
-        -- Load Laravel-specific configurations
-        require('laravel.artisan').setup()
-        require('laravel.blade').setup()
-        require('laravel.routes').setup()
-        require('laravel.models').setup()
-        require('laravel.migrations').setup()
-        require('laravel.lsp').setup()
+        vim.notify("Laravel.nvim: Laravel project detected at " .. root, vim.log.levels.INFO)
+    else
+        vim.notify("Laravel.nvim: Loaded (not in Laravel project)", vim.log.levels.INFO)
     end
 end
 
@@ -108,9 +130,33 @@ local function setup_commands()
         end,
         desc = 'Laravel make commands with fuzzy finder'
     })
+
+    -- Debug command to check Laravel status
+    vim.api.nvim_create_user_command('LaravelStatus', function()
+        local is_laravel = _G.laravel_nvim.is_laravel_project
+        local root = _G.laravel_nvim.project_root
+
+        if is_laravel and root then
+            vim.notify("Laravel project detected at: " .. root, vim.log.levels.INFO)
+        else
+            vim.notify("Not in a Laravel project", vim.log.levels.WARN)
+        end
+
+        -- Check if artisan is available
+        if root then
+            local artisan_path = root .. '/artisan'
+            if vim.fn.filereadable(artisan_path) == 1 then
+                vim.notify("Artisan file found at: " .. artisan_path, vim.log.levels.INFO)
+            else
+                vim.notify("Artisan file not found at: " .. artisan_path, vim.log.levels.WARN)
+            end
+        end
+    end, { desc = 'Check Laravel.nvim status' })
 end
+
+-- Always setup commands first
+setup_commands()
 
 -- Initialize the plugin
 initialize_laravel()
 setup_autocommands()
-setup_commands()
