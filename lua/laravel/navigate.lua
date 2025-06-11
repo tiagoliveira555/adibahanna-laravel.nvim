@@ -21,7 +21,16 @@ function M.find_controllers()
     local controllers = {}
     local function scan_directory(dir, namespace)
         namespace = namespace or 'App\\Http\\Controllers'
+
+        -- Check if directory exists
+        if vim.fn.isdirectory(dir) ~= 1 then
+            return
+        end
+
         local items = vim.fn.readdir(dir)
+        if not items then
+            return
+        end
 
         for _, item in ipairs(items) do
             local full_path = dir .. '/' .. item
@@ -58,7 +67,16 @@ function M.find_models()
     local models = {}
     local function scan_directory(dir, namespace, is_models_dir)
         namespace = namespace or 'App'
+
+        -- Check if directory exists
+        if vim.fn.isdirectory(dir) ~= 1 then
+            return
+        end
+
         local items = vim.fn.readdir(dir)
+        if not items then
+            return
+        end
 
         for _, item in ipairs(items) do
             local full_path = dir .. '/' .. item
@@ -283,16 +301,18 @@ function M.goto_related()
         local migrations_path = root .. '/database/migrations'
         if vim.fn.isdirectory(migrations_path) == 1 then
             local migrations = vim.fn.readdir(migrations_path)
-            local table_name = model_name:lower() .. 's' -- Simple pluralization
+            if migrations then
+                local table_name = model_name:lower() .. 's' -- Simple pluralization
 
-            for _, migration in ipairs(migrations) do
-                if migration:match(table_name) then
-                    related_files[#related_files + 1] = {
-                        type = 'Migration',
-                        name = migration,
-                        path = migrations_path .. '/' .. migration,
-                    }
-                    break
+                for _, migration in ipairs(migrations) do
+                    if migration:match(table_name) then
+                        related_files[#related_files + 1] = {
+                            type = 'Migration',
+                            name = migration,
+                            path = migrations_path .. '/' .. migration,
+                        }
+                        break
+                    end
                 end
             end
         end
