@@ -8,9 +8,8 @@ local M = {}
 --   <leader>Lc - Go to controller
 --   <leader>Lm - Go to model
 --   <leader>Lv - Go to view
---   <leader>LV - Show related views (context-aware)
---   <leader>Lr - Show routes
---   <leader>LR - Go to route file
+--   <leader>Lr - Go to route file
+--   <leader>LR - Show routes
 --   <leader>La - Run artisan command
 --   <leader>Lk - Laravel make command
 --   <leader>Ls - Show Laravel status
@@ -43,10 +42,6 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>Lv', function()
                 require('laravel.navigate').goto_view()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to view' }))
-
-            vim.keymap.set('n', '<leader>LV', function()
-                require('laravel.navigate').show_related_views()
-            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show related views' }))
 
             vim.keymap.set('n', '<leader>LR', function()
                 require('laravel.routes').show_routes()
@@ -84,10 +79,6 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>Lv', function()
                 require('laravel.navigate').goto_view()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to view' }))
-
-            vim.keymap.set('n', '<leader>LV', function()
-                require('laravel.navigate').show_related_views()
-            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show related views' }))
         end,
     })
 end
