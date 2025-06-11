@@ -263,6 +263,17 @@ function M.show_related_views()
     -- Debug information
     print('Debug: Relative path:', relative_path)
 
+    -- First, let's see what views are available
+    local all_views = require('laravel.blade').find_views()
+    print('Debug: Total views found by find_views():', #all_views)
+    for i, view in ipairs(all_views) do
+        print('Debug: View ' .. i .. ':', view.name, '-> path:', view.path)
+        if i > 5 then -- Limit output to avoid spam
+            print('Debug: ... and', #all_views - 5, 'more views')
+            break
+        end
+    end
+
     -- Determine context and find related views
     if relative_path:match('^app/Http/Controllers/') then
         print('Debug: Detected controller file')
@@ -277,6 +288,12 @@ function M.show_related_views()
         -- Read controller content to find actual view calls
         local content = vim.fn.readfile(current_file)
         local view_patterns = {}
+
+        print('Debug: Read', #content, 'lines from controller file')
+        print('Debug: First few lines:')
+        for i = 1, math.min(10, #content) do
+            print('Debug: Line ' .. i .. ':', content[i])
+        end
 
         -- Look for view() calls and Inertia::render() calls
         for _, line in ipairs(content) do
