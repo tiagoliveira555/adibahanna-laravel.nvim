@@ -10,6 +10,7 @@ local M = {}
 --   <leader>Lv - Go to view
 --   <leader>LV - Show related views (context-aware)
 --   <leader>Lr - Show routes
+--   <leader>LR - Go to route file
 --   <leader>La - Run artisan command
 --   <leader>Lk - Laravel make command
 --   <leader>Ls - Show Laravel status
@@ -50,6 +51,10 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>Lr', function()
                 require('laravel.routes').show_routes()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show routes' }))
+
+            vim.keymap.set('n', '<leader>LR', function()
+                require('laravel.navigate').goto_route_file()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to route file' }))
 
             vim.keymap.set('n', '<leader>La', function()
                 vim.cmd('Artisan')

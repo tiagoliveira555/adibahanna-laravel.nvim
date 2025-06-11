@@ -242,6 +242,86 @@ function M.goto_view(view_name)
     require('laravel.blade').goto_view(view_name)
 end
 
+-- Find route files
+function M.find_route_files()
+    local root = get_project_root()
+    if not root then
+        return {}
+    end
+
+    local routes_dir = root .. '/routes'
+    if vim.fn.isdirectory(routes_dir) == 0 then
+        return {}
+    end
+
+    local route_files = {}
+    local files = vim.fn.glob(routes_dir .. '/*.php', false, true)
+
+    for _, file in ipairs(files) do
+        local name = vim.fn.fnamemodify(file, ':t:r') -- filename without extension
+        table.insert(route_files, {
+            name = name,
+            path = file,
+            relative_path = 'routes/' .. name .. '.php'
+        })
+    end
+
+    -- Sort by name
+    table.sort(route_files, function(a, b)
+        return a.name < b.name
+    end)
+
+    return route_files
+end
+
+-- Navigate to route file
+function M.goto_route_file(route_name)
+    if not route_name or route_name == '' then
+        -- Show route file picker
+        local route_files = M.find_route_files()
+        if #route_files == 0 then
+            ui.warn('No route files found')
+            return
+        end
+
+        local items = {}
+        for _, route_file in ipairs(route_files) do
+            items[#items + 1] = route_file.name
+        end
+
+        ui.select(items, {
+            prompt = 'Select route file:',
+            kind = 'laravel_route_file',
+        }, function(choice)
+            if choice then
+                for _, route_file in ipairs(route_files) do
+                    if route_file.name == choice then
+                        vim.cmd('edit ' .. route_file.path)
+                        break
+                    end
+                end
+            end
+        end)
+    else
+        -- Find specific route file
+        local route_files = M.find_route_files()
+        local found_route = nil
+
+        for _, route_file in ipairs(route_files) do
+            if route_file.name:lower():match(route_name:lower()) then
+                found_route = route_file
+                break
+            end
+        end
+
+        if found_route then
+            vim.cmd('edit ' .. found_route.path)
+        else
+            ui.error('Route file not found: ' .. route_name)
+        end
+    end
+end
+
 -- Show context-aware related views
 function M.show_related_views()
     local current_file = vim.fn.expand('%:p')
