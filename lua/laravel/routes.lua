@@ -196,7 +196,7 @@ local function calculate_max_widths(routes)
     return max_widths
 end
 
--- Show routes in a clean table format
+-- Show routes in terminal-style format like artisan route:list
 function M.show_routes()
     get_routes(function(routes)
         if not routes or #routes == 0 then
@@ -213,100 +213,90 @@ function M.show_routes()
             table.insert(formatted_routes, format_route(route, max_widths))
         end
 
-        -- Create clean header with proper spacing
-        local method_col = 12 -- Fixed width for method column
-        local uri_col = max_widths.uri + 2
-        local name_col = max_widths.name + 2
-
-        local header = string.format('%-' .. method_col .. 's %-' .. uri_col .. 's %-' .. name_col .. 's %s',
-            'METHOD', 'URI', 'NAME', 'ACTION')
-        local separator = string.rep('─', #header)
+        -- Set column widths similar to artisan route:list
+        local method_col = math.max(12, max_widths.method + 2)
+        local uri_col = math.max(30, max_widths.uri + 5)
+        local name_col = math.max(25, max_widths.name + 5)
 
         local content_lines = {}
-        table.insert(content_lines, header)
-        table.insert(content_lines, separator)
 
-        -- Add routes with proper column alignment
+        -- Add routes in terminal format
         for _, formatted in ipairs(formatted_routes) do
-            -- Get method icon
-            local method_icon = ''
-            if #formatted.methods > 0 then
-                method_icon = get_method_color(formatted.methods[1])
-            end
-
-            -- Create properly aligned route line
             local method_text = table.concat(formatted.methods, '|')
-            local route_line = string.format(
-                '%s %-' .. (method_col - 2) .. 's %-' .. uri_col .. 's %-' .. name_col .. 's %s',
-                method_icon,
+            local uri_text = formatted.uri
+            local name_text = formatted.name
+            local action_text = formatted.action or ''
+
+            -- Create dotted padding like artisan route:list
+            local method_padding = string.rep('.', math.max(1, method_col - #method_text - 1))
+            local uri_padding = string.rep('.', math.max(1, uri_col - #uri_text - 1))
+            local name_padding = string.rep('.', math.max(1, name_col - #name_text - 1))
+
+            local route_line = string.format('%s %s %s %s %s %s',
                 method_text,
-                formatted.uri,
-                formatted.name,
-                formatted.controller or formatted.action or ''
+                method_padding,
+                uri_text,
+                uri_padding,
+                name_text,
+                name_padding .. ' ' .. action_text
             )
 
             table.insert(content_lines, route_line)
         end
 
-        -- Add help text
+        -- Show total count like artisan
         table.insert(content_lines, '')
-        table.insert(content_lines,
-            'Press <CR> to navigate • r to refresh • f to filter • m for method filter • q to close')
+        table.insert(content_lines, string.format('Showing [%d] routes', #formatted_routes))
 
-        -- Calculate window size based on content
+        -- Calculate window size to fit content
         local max_line_length = 0
         for _, line in ipairs(content_lines) do
             max_line_length = math.max(max_line_length, vim.fn.strwidth(line))
         end
 
-        local width = math.min(math.max(max_line_length + 4, 80), vim.o.columns - 4)
+        local width = math.min(math.max(max_line_length + 4, 100), vim.o.columns - 2)
         local height = math.min(#content_lines + 2, vim.o.lines - 4)
 
         -- Show in floating window
         local float = ui.create_float({
             content = content_lines,
-            title = ' 🚀 Laravel Routes ',
+            title = ' Laravel Routes ',
             width = width,
             height = height,
-            border = 'rounded',
+            border = 'single',
         })
 
-        -- Set up syntax highlighting
+        -- Set up syntax highlighting to match artisan colors
         vim.api.nvim_buf_set_option(float.buf, 'filetype', 'laravel-routes')
 
-        -- Custom syntax highlighting
         vim.cmd([[
             syntax clear
-            syntax match LaravelRouteMethod /\v(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)/
-            syntax match LaravelRouteIcon /[🟢🔵🟡🟠🔴⚪⚫]/
-            syntax match LaravelRouteUri /\/[^\s]*/
+            syntax match LaravelRouteMethod /\v^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)(\|(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS))*/
+            syntax match LaravelRouteDots /\.\+/
+            syntax match LaravelRouteUri /\/[^\s\.]*/
             syntax match LaravelRouteName /\w\+\.\w\+/
             syntax match LaravelRouteController /[A-Z]\w*Controller/
-            syntax match LaravelRouteSeparator /─\+/
-            syntax match LaravelRouteHelp /Press.*close$/
+            syntax match LaravelRouteCount /Showing \[\d\+\] routes/
 
-            highlight link LaravelRouteMethod Keyword
-            highlight link LaravelRouteIcon Special
-            highlight link LaravelRouteUri String
-            highlight link LaravelRouteName Identifier
-            highlight link LaravelRouteController Function
-            highlight link LaravelRouteSeparator Comment
-            highlight link LaravelRouteHelp Comment
+            highlight LaravelRouteMethod ctermfg=green guifg=#4ade80
+            highlight LaravelRouteDots ctermfg=darkgray guifg=#6b7280
+            highlight LaravelRouteUri ctermfg=blue guifg=#60a5fa
+            highlight LaravelRouteName ctermfg=yellow guifg=#fbbf24
+            highlight LaravelRouteController ctermfg=cyan guifg=#06b6d4
+            highlight LaravelRouteCount ctermfg=green guifg=#4ade80
         ]])
 
-        -- Enhanced navigation keymaps
+        -- Navigation keymaps
         vim.keymap.set('n', '<CR>', function()
             local current_line = vim.api.nvim_win_get_cursor(0)[1]
-            local route_index = current_line - 2 -- Account for header and separator
-
-            if route_index > 0 and route_index <= #formatted_routes then
-                local selected_route = formatted_routes[route_index]
+            if current_line <= #formatted_routes then
+                local selected_route = formatted_routes[current_line]
                 float.close()
 
-                if selected_route.controller and selected_route.controller ~= '' then
+                if selected_route.action and selected_route.action:match('Controller') then
                     -- Navigate to controller
-                    require('laravel.navigate').goto_controller(selected_route.controller)
-                elseif selected_route.name then
+                    require('laravel.navigate').goto_controller(selected_route.action)
+                elseif selected_route.name and selected_route.name ~= '' then
                     -- Try to find route definition by name
                     M.navigate_to_route_definition(selected_route.route)
                 else
@@ -324,7 +314,6 @@ function M.show_routes()
         end, { buffer = float.buf, silent = true, desc = 'Refresh routes' })
 
         vim.keymap.set('n', 'f', function()
-            -- Filter routes
             vim.ui.input({ prompt = 'Filter routes (URI): ' }, function(filter)
                 if filter and filter ~= '' then
                     float.close()
@@ -334,7 +323,6 @@ function M.show_routes()
         end, { buffer = float.buf, silent = true, desc = 'Filter routes' })
 
         vim.keymap.set('n', 'm', function()
-            -- Filter by method
             ui.select({ 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS' }, {
                 prompt = 'Filter by method:',
             }, function(method)
@@ -347,7 +335,7 @@ function M.show_routes()
 
         -- Position cursor on first route
         if #formatted_routes > 0 then
-            vim.api.nvim_win_set_cursor(float.win, { 3, 1 })
+            vim.api.nvim_win_set_cursor(float.win, { 1, 1 })
         end
     end)
 end
