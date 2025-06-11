@@ -242,4 +242,158 @@ function M.goto_view(view_name)
     require('laravel.blade').goto_view(view_name)
 end
 
+-- Show context-aware related views
+function M.show_related_views()
+    local current_file = vim.fn.expand('%:p')
+    local root = get_project_root()
+
+    if not root or not current_file:find(root, 1, true) then
+        ui.warn('Not in a Laravel project')
+        return
+    end
+
+    local relative_path = current_file:sub(#root + 2) -- +2 for the slash
+    local related_views = {}
+    local context_name = nil
+
+    -- Determine context and find related views
+    if relative_path:match('^app/Http/Controllers/') then
+        -- In a controller file
+        local controller_name = vim.fn.fnamemodify(current_file, ':t:r') -- filename without extension
+        local base_name = controller_name:gsub('Controller$', '')
+        context_name = base_name .. ' Controller'
+
+        -- Find views that match the controller name
+        local views = require('laravel.blade').find_views()
+        local view_prefix = base_name:lower()
+
+        -- Look for views with matching prefix (users.*, posts.*, etc.)
+        for _, view in ipairs(views) do
+            if view.name:match('^' .. view_prefix .. '%.') or view.name:match('^' .. view_prefix .. '$') then
+                related_views[#related_views + 1] = {
+                    name = view.name,
+                    path = view.path,
+                    match_type = 'prefix'
+                }
+            end
+        end
+
+        -- Also look for exact matches in subdirectories (users/index, users/show, etc.)
+        for _, view in ipairs(views) do
+            if view.name:match('^' .. view_prefix .. '/') then
+                related_views[#related_views + 1] = {
+                    name = view.name,
+                    path = view.path,
+                    match_type = 'directory'
+                }
+            end
+        end
+    elseif relative_path:match('^routes/') then
+        -- In a route file - try to detect view context from cursor position
+        local current_line = vim.api.nvim_get_current_line()
+        local cursor_pos = vim.api.nvim_win_get_cursor(0)
+        local line_num = cursor_pos[1]
+
+        -- Look for view() calls around the cursor
+        local view_name = nil
+
+        -- Check current line and a few lines around it
+        for i = math.max(1, line_num - 2), math.min(vim.fn.line('$'), line_num + 2) do
+            local line = vim.fn.getline(i)
+            local match = line:match("view%s*%(%s*['\"]([^'\"]+)['\"]")
+            if match then
+                view_name = match
+                break
+            end
+        end
+
+        if view_name then
+            context_name = 'Route: ' .. view_name
+            local views = require('laravel.blade').find_views()
+
+            -- Find views related to the detected view
+            local view_parts = vim.split(view_name, '%.')
+            local prefix = view_parts[1]
+
+            for _, view in ipairs(views) do
+                if view.name:match('^' .. prefix .. '%.') or view.name:match('^' .. prefix .. '$') or
+                    view.name:match('^' .. prefix .. '/') then
+                    related_views[#related_views + 1] = {
+                        name = view.name,
+                        path = view.path,
+                        match_type = 'route_related'
+                    }
+                end
+            end
+        else
+            ui.info('No view context detected in current route')
+            return
+        end
+    elseif relative_path:match('%.blade%.php$') then
+        -- In a view file - show sibling views
+        local view_name = require('laravel.blade').get_current_view_name()
+        if view_name then
+            local view_parts = vim.split(view_name, '%.')
+            local prefix = view_parts[1]
+            context_name = 'Views: ' .. prefix .. '.*'
+
+            local views = require('laravel.blade').find_views()
+            for _, view in ipairs(views) do
+                if view.name ~= view_name and
+                    (view.name:match('^' .. prefix .. '%.') or view.name:match('^' .. prefix .. '/')) then
+                    related_views[#related_views + 1] = {
+                        name = view.name,
+                        path = view.path,
+                        match_type = 'sibling'
+                    }
+                end
+            end
+        else
+            ui.warn('Could not determine view context')
+            return
+        end
+    else
+        ui.info('No view context detected for current file type')
+        return
+    end
+
+    -- Remove duplicates (in case a view matches multiple patterns)
+    local seen = {}
+    local unique_views = {}
+    for _, view in ipairs(related_views) do
+        if not seen[view.name] then
+            seen[view.name] = true
+            unique_views[#unique_views + 1] = view
+        end
+    end
+
+    if #unique_views == 0 then
+        ui.info('No related views found for ' .. (context_name or 'current context'))
+        return
+    end
+
+    -- Sort views by name for better organization
+    table.sort(unique_views, function(a, b) return a.name < b.name end)
+
+    -- Show view picker
+    local items = {}
+    for _, view in ipairs(unique_views) do
+        items[#items + 1] = view.name
+    end
+
+    ui.select(items, {
+        prompt = 'Related views (' .. (context_name or 'current context') .. '):',
+        kind = 'laravel_related_views',
+    }, function(choice)
+        if choice then
+            for _, view in ipairs(unique_views) do
+                if view.name == choice then
+                    vim.cmd('edit ' .. view.path)
+                    break
+                end
+            end
+        end
+    end)
+end
+
 return M
