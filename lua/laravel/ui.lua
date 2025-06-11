@@ -21,53 +21,21 @@ function M.select(items, opts, on_choice)
         formatted_items[i] = display_item
     end
 
-    -- Use snacks.nvim picker if available, otherwise fall back to vim.ui.select
-    local has_snacks, snacks = pcall(require, 'snacks')
-    if has_snacks and snacks.picker and opts.use_snacks ~= false then
-        M.snacks_select(formatted_items, opts, function(choice)
-            if choice and on_choice then
-                on_choice(item_map[choice])
-            end
-        end)
-    else
-        vim.ui.select(formatted_items, {
-            prompt = opts.prompt or 'Select item:',
-            format_item = function(item)
-                return item
-            end,
-        }, function(choice)
-            if choice and on_choice then
-                on_choice(item_map[choice])
-            end
-        end)
-    end
+    -- For now, use vim.ui.select (snacks.nvim integration needs proper API research)
+    vim.ui.select(formatted_items, {
+        prompt = opts.prompt or 'Select item:',
+        format_item = function(item)
+            return item
+        end,
+    }, function(choice)
+        if choice and on_choice then
+            on_choice(item_map[choice])
+        end
+    end)
 end
 
--- Snacks.nvim-based selection (if snacks.nvim is available)
-function M.snacks_select(items, opts, on_choice)
-    local has_snacks, snacks = pcall(require, 'snacks')
-
-    if not (has_snacks and snacks.picker) then
-        -- Fallback to vim.ui.select
-        vim.ui.select(items, opts, on_choice)
-        return
-    end
-
-    -- Use snacks picker with simple selection
-    snacks.picker({
-        source = items,
-        title = opts.prompt or 'Select',
-        format = function(item)
-            return tostring(item)
-        end,
-        select = function(item, ctx)
-            if item and on_choice then
-                on_choice(item)
-            end
-            ctx:close()
-        end,
-    }):open()
-end
+-- TODO: Implement proper snacks.nvim integration
+-- For now, we're using vim.ui.select for compatibility
 
 -- Input dialog with validation
 function M.input(opts, on_confirm)
@@ -100,20 +68,11 @@ function M.notify(message, level, opts)
     level = level or vim.log.levels.INFO
     opts = opts or {}
 
-    -- Use snacks.nvim notifier if available
-    local has_snacks, snacks = pcall(require, 'snacks')
-    if has_snacks and snacks.notifier then
-        snacks.notifier.notify(message, {
-            title = opts.title or 'Laravel.nvim',
-            level = level,
-            timeout = opts.timeout,
-        })
-    else
-        vim.notify(message, level, {
-            title = opts.title or 'Laravel.nvim',
-            timeout = opts.timeout,
-        })
-    end
+    -- For now, use vim.notify (snacks.nvim integration needs proper API research)
+    vim.notify(message, level, {
+        title = opts.title or 'Laravel.nvim',
+        timeout = opts.timeout,
+    })
 end
 
 -- Show info message
