@@ -149,8 +149,11 @@ function M.parse_migration(file_path)
             }
 
             for _, col_pattern in ipairs(column_patterns) do
-                local match = line:match(col_pattern.pattern)
-                if match then
+                local success, match = pcall(function()
+                    return line:match(col_pattern.pattern)
+                end)
+
+                if success and match then
                     local column_name = col_pattern.name and col_pattern.name(match) or match
                     if column_name then
                         -- Handle multiple columns (like timestamps)
@@ -163,17 +166,26 @@ function M.parse_migration(file_path)
                         end
                     end
                     break
+                elseif not success then
+                    -- Skip invalid patterns silently
                 end
             end
 
             -- Parse foreign key constraints
             -- Look for $table->foreign('column')->references('id')->on('table')
-            local local_key = line:match("%$table%->foreign%s*%(%s*['\"]([^'\"]+)['\"]")
-            if local_key then
-                local foreign_key = line:match("%->references%s*%(%s*['\"]([^'\"]+)['\"]")
-                local foreign_table = line:match("%->on%s*%(%s*['\"]([^'\"]+)['\"]")
+            local success_local, local_key = pcall(function()
+                return line:match("%$table%->foreign%s*%(%s*['\"]([^'\"]+)['\"]")
+            end)
 
-                if foreign_key and foreign_table then
+            if success_local and local_key then
+                local success_foreign, foreign_key = pcall(function()
+                    return line:match("%->references%s*%(%s*['\"]([^'\"]+)['\"]")
+                end)
+                local success_table, foreign_table = pcall(function()
+                    return line:match("%->on%s*%(%s*['\"]([^'\"]+)['\"]")
+                end)
+
+                if success_foreign and success_table and foreign_key and foreign_table then
                     table.insert(schema_info.tables[current_table].foreign_keys, {
                         local_key = local_key,
                         foreign_table = foreign_table,
