@@ -207,41 +207,39 @@ function M.show_routes()
         -- Calculate optimal column widths
         local max_widths = calculate_max_widths(routes)
 
-        -- Add some padding for readability
-        max_widths.method = max_widths.method + 2
-        max_widths.uri = max_widths.uri + 2
-        max_widths.name = max_widths.name + 2
-
-        -- Format routes
+        -- Format routes first to get all data
         local formatted_routes = {}
-        local content_lines = {}
+        for _, route in ipairs(routes) do
+            table.insert(formatted_routes, format_route(route, max_widths))
+        end
 
-        -- Create clean header
-        local header = string.format(
-            '%-' .. max_widths.method .. 's %-' .. max_widths.uri .. 's %-' .. max_widths.name .. 's %s',
-            'METHOD', 'URI', 'NAME', 'ACTION'
-        )
+        -- Create clean header with proper spacing
+        local method_col = 12 -- Fixed width for method column
+        local uri_col = max_widths.uri + 2
+        local name_col = max_widths.name + 2
+
+        local header = string.format('%-' .. method_col .. 's %-' .. uri_col .. 's %-' .. name_col .. 's %s',
+            'METHOD', 'URI', 'NAME', 'ACTION')
         local separator = string.rep('─', #header)
 
+        local content_lines = {}
         table.insert(content_lines, header)
         table.insert(content_lines, separator)
 
-        -- Add routes with clean formatting
-        for _, route in ipairs(routes) do
-            local formatted = format_route(route, max_widths)
-            table.insert(formatted_routes, formatted)
-
+        -- Add routes with proper column alignment
+        for _, formatted in ipairs(formatted_routes) do
             -- Get method icon
             local method_icon = ''
             if #formatted.methods > 0 then
                 method_icon = get_method_color(formatted.methods[1])
             end
 
-            -- Create clean route line
+            -- Create properly aligned route line
+            local method_text = table.concat(formatted.methods, '|')
             local route_line = string.format(
-                '%s %-' .. (max_widths.method - 2) .. 's %-' .. max_widths.uri .. 's %-' .. max_widths.name .. 's %s',
+                '%s %-' .. (method_col - 2) .. 's %-' .. uri_col .. 's %-' .. name_col .. 's %s',
                 method_icon,
-                table.concat(formatted.methods, '|'),
+                method_text,
                 formatted.uri,
                 formatted.name,
                 formatted.controller or formatted.action or ''
