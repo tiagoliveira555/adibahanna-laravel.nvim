@@ -58,7 +58,7 @@ local function initialize_laravel()
     require('laravel.routes').setup()
     require('laravel.models').setup()
     require('laravel.migrations').setup()
-    require('laravel.lsp').setup()
+    require('laravel.keymaps').setup() -- Laravel-specific keymaps
 
     if is_laravel then
         vim.notify("Laravel.nvim: Laravel project detected at " .. root, vim.log.levels.INFO)

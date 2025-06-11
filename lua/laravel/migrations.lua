@@ -343,15 +343,15 @@ local function setup_migration_keymaps()
             -- Check if we're in a migration file
             local migrations_path = root .. '/database/migrations/'
             if current_file:find(migrations_path, 1, true) then
-                -- Add migration-specific keymaps
-                vim.keymap.set('n', '<leader>mi', M.show_migration_info, {
+                -- Add migration-specific keymaps with <leader>L prefix
+                vim.keymap.set('n', '<leader>Li', M.show_migration_info, {
                     buffer = true,
-                    desc = 'Show migration info'
+                    desc = 'Laravel: Show migration info'
                 })
 
-                vim.keymap.set('n', '<leader>mm', M.migrate, {
+                vim.keymap.set('n', '<leader>LM', M.migrate, {
                     buffer = true,
-                    desc = 'Run migration command'
+                    desc = 'Laravel: Run migration command'
                 })
             end
         end,

@@ -382,20 +382,20 @@ local function setup_model_keymaps()
 
             if current_file:find(models_path, 1, true) or
                 (current_file:find(app_path, 1, true) and current_file:match('%.php$')) then
-                -- Add model-specific keymaps
-                vim.keymap.set('n', '<leader>mr', M.show_relationships, {
+                -- Add model-specific keymaps with <leader>L prefix
+                vim.keymap.set('n', '<leader>LR', M.show_relationships, {
                     buffer = true,
-                    desc = 'Show model relationships'
+                    desc = 'Laravel: Show model relationships'
                 })
 
-                vim.keymap.set('n', '<leader>ma', M.show_attributes, {
+                vim.keymap.set('n', '<leader>LA', M.show_attributes, {
                     buffer = true,
-                    desc = 'Show model attributes'
+                    desc = 'Laravel: Show model attributes'
                 })
 
-                vim.keymap.set('n', '<leader>mg', M.goto_related_model, {
+                vim.keymap.set('n', '<leader>LG', M.goto_related_model, {
                     buffer = true,
-                    desc = 'Go to related model'
+                    desc = 'Laravel: Go to related model'
                 })
             end
         end,

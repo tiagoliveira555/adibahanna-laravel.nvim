@@ -38,17 +38,11 @@ A comprehensive Neovim plugin for Laravel development that provides intelligent 
 - Database migration command shortcuts
 - Migration-specific snippets
 
-### 🔧 LSP Integration
-- Automatic PHP language server setup (Phpactor/Intelephense)
-- Laravel-specific LSP enhancements
-- Blade template LSP support
-- Intelligent diagnostics and completions
-
-### 🎨 Modern UI Integration
-- Optional [Snacks.nvim](https://github.com/folke/snacks.nvim/) integration for enhanced UI
-- Beautiful fuzzy finding with modern picker interface
-- Enhanced notifications and floating windows
-- Graceful fallback to built-in vim.ui when snacks.nvim is not available
+### 🎨 Clean Integration
+- Uses standard Neovim UI components for maximum compatibility
+- No LSP configuration conflicts - works with your existing setup
+- Lightweight and focused on Laravel-specific functionality
+- Graceful fallback behaviors for robust operation
 
 ## 📦 Installation
 
@@ -58,9 +52,6 @@ A comprehensive Neovim plugin for Laravel development that provides intelligent 
 {
   'adibhanna/laravel.nvim',
   ft = { 'php', 'blade' },
-  dependencies = {
-    'folke/snacks.nvim', -- Optional: for enhanced UI
-  },
   config = function()
     -- Plugin will auto-configure when entering a Laravel project
   end,
@@ -73,9 +64,6 @@ A comprehensive Neovim plugin for Laravel development that provides intelligent 
 use {
   'adibhanna/laravel.nvim',
   ft = { 'php', 'blade' },
-  requires = {
-    'folke/snacks.nvim', -- Optional
-  },
   config = function()
     -- Auto-setup on Laravel project detection
   end,
@@ -88,21 +76,6 @@ use {
 - **Neovim 0.10+** (for built-in snippet support)
 - **PHP 8.0+**
 - **Composer** (for Laravel projects)
-
-### Recommended
-- **PHP Language Server**: Install one of the following:
-  ```bash
-  # Phpactor (recommended)
-  composer global require phpactor/phpactor
-  
-  # OR Intelephense
-  npm install -g intelephense
-  ```
-
-- **HTML Language Server** (for Blade files):
-  ```bash
-  npm install -g vscode-langservers-extracted
-  ```
 
 ## 🚀 Usage
 
@@ -121,23 +94,28 @@ Laravel.nvim automatically activates when you open a Laravel project (detected b
 
 ### Key Mappings
 
-#### Global (in Laravel projects)
-- `<leader>lc` - Go to controller
-- `<leader>lm` - Go to model  
-- `<leader>lv` - Go to view
-- `<leader>lr` - Show routes
+All Laravel keymaps use the `<leader>L` prefix for better organization and to avoid conflicts.
 
-#### In Model Files
-- `<leader>mr` - Show model relationships
-- `<leader>ma` - Show model attributes
-- `<leader>mg` - Go to related model
+#### Global Laravel Commands
+- `<leader>Lc` - Go to controller
+- `<leader>Lm` - Go to model  
+- `<leader>Lv` - Go to view
+- `<leader>Lr` - Show routes
+- `<leader>La` - Run artisan command
+- `<leader>Lk` - Laravel make command
+- `<leader>Ls` - Show Laravel status
+- `<leader>Lg` - Go to related file
 
-#### In Migration Files
-- `<leader>mi` - Show migration info
-- `<leader>mm` - Run migration command
+#### Model-Specific (in model files)
+- `<leader>LR` - Show model relationships
+- `<leader>LA` - Show model attributes
+- `<leader>LG` - Go to related model
 
-#### In Route Files
-- `<leader>rt` - Test route at cursor
+#### Migration-Specific (in migration files)
+- `<leader>Li` - Show migration info
+- `<leader>LM` - Run migration command
+
+#### Route Files
 - `gd` - Go to route definition (or LSP definition)
 
 ### Snippets
@@ -202,51 +180,31 @@ vim.g.laravel_nvim_config = {
     routes = true,
     models = true,
     migrations = true,
-    lsp = true,
+    keymaps = true,
   },
-  
-  -- LSP server preference
-  lsp_server = 'phpactor', -- or 'intelephense'
   
   -- UI preferences
   ui = {
-    use_snacks = true, -- Use Snacks.nvim for selections if available
+    use_fallback_select = true, -- Use vim.ui.select for compatibility
   },
 }
 ```
 
 ## 🔌 Integration
 
-### Snacks.nvim
-Laravel.nvim integrates seamlessly with [Snacks.nvim](https://github.com/folke/snacks.nvim/) for enhanced UI:
-- Beautiful picker interface for selections with fuzzy finding
-- Enhanced notifications for better user feedback
-- Consistent UI experience across all Laravel operations
-- Modern floating windows for route browsing and file selection
-- Better performance compared to traditional pickers
+### UI Framework
+Laravel.nvim uses standard Neovim UI components (`vim.ui.select`, `vim.notify`) for maximum compatibility with your existing setup.
 
 ### Tree-sitter
 Blade syntax highlighting works with tree-sitter when available.
 
-### LSP Clients
-Works with popular LSP configurations like:
-- `nvim-lspconfig`
-- `mason.nvim`
-- Built-in Neovim LSP
+### LSP Compatibility
+Laravel.nvim focuses on Laravel-specific functionality and does not configure LSP servers, allowing you to use your preferred LSP setup:
+- Works alongside any PHP LSP configuration
+- Compatible with `nvim-lspconfig`, `mason.nvim`, or manual LSP setup
+- Provides Laravel-specific navigation and utilities without interfering with LSP
 
 ## 🐛 Troubleshooting
-
-### PHP Language Server Not Found
-```bash
-# Install Phpactor
-composer global require phpactor/phpactor
-
-# OR install Intelephense
-npm install -g intelephense
-
-# Make sure global composer bin is in PATH
-export PATH="$HOME/.composer/vendor/bin:$PATH"
-```
 
 ### Blade Files Not Highlighting
 1. Ensure file extension is `.blade.php`
