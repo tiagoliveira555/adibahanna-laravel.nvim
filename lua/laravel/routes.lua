@@ -173,8 +173,7 @@ local function calculate_max_widths(routes)
             if type(route.name) == 'string' then
                 name = route.name
             else
-                -- Debug: log unexpected type
-                vim.notify('Unexpected route.name type: ' .. type(route.name), vim.log.levels.DEBUG)
+                -- Handle non-string values (like userdata from JSON nulls)
                 name = tostring(route.name) or ''
             end
         end
@@ -197,17 +196,7 @@ local function calculate_max_widths(routes)
     return max_widths
 end
 
--- Create beautiful header
-local function create_header(max_widths)
-    local header = string.format(
-        '%-' .. max_widths.method .. 's %-' .. max_widths.uri .. 's %-' .. max_widths.name .. 's %s',
-        'METHOD', 'URI', 'NAME', 'ACTION')
-    local separator = string.rep('─', #header)
-
-    return { header, separator }
-end
-
--- Show routes in a beautiful floating window
+-- Show routes in a clean table format
 function M.show_routes()
     get_routes(function(routes)
         if not routes or #routes == 0 then
@@ -218,50 +207,64 @@ function M.show_routes()
         -- Calculate optimal column widths
         local max_widths = calculate_max_widths(routes)
 
+        -- Add some padding for readability
+        max_widths.method = max_widths.method + 2
+        max_widths.uri = max_widths.uri + 2
+        max_widths.name = max_widths.name + 2
+
         -- Format routes
         local formatted_routes = {}
         local content_lines = {}
 
-        -- Create beautiful header
-        local header_lines = create_header(max_widths)
-        table.insert(content_lines, '┌─ Laravel Routes ────────────────────────────────────────────┐')
-        table.insert(content_lines, '│                                                              │')
-        table.insert(content_lines,
-            '│  ' .. header_lines[1] .. string.rep(' ', math.max(0, 58 - #header_lines[1])) .. '│')
-        table.insert(content_lines,
-            '│  ' .. header_lines[2] .. string.rep(' ', math.max(0, 58 - #header_lines[2])) .. '│')
-        table.insert(content_lines, '│                                                              │')
+        -- Create clean header
+        local header = string.format(
+            '%-' .. max_widths.method .. 's %-' .. max_widths.uri .. 's %-' .. max_widths.name .. 's %s',
+            'METHOD', 'URI', 'NAME', 'ACTION'
+        )
+        local separator = string.rep('─', #header)
 
-        -- Add routes
+        table.insert(content_lines, header)
+        table.insert(content_lines, separator)
+
+        -- Add routes with clean formatting
         for _, route in ipairs(routes) do
             local formatted = format_route(route, max_widths)
             table.insert(formatted_routes, formatted)
 
-            -- Create beautiful route line with icons
+            -- Get method icon
             local method_icon = ''
             if #formatted.methods > 0 then
                 method_icon = get_method_color(formatted.methods[1])
             end
 
-            local route_line = string.format('%s %s %s %s %s',
+            -- Create clean route line
+            local route_line = string.format(
+                '%s %-' .. (max_widths.method - 2) .. 's %-' .. max_widths.uri .. 's %-' .. max_widths.name .. 's %s',
                 method_icon,
-                formatted.padded_method,
-                formatted.padded_uri,
-                formatted.padded_name,
+                table.concat(formatted.methods, '|'),
+                formatted.uri,
+                formatted.name,
                 formatted.controller or formatted.action or ''
             )
 
-            table.insert(content_lines, '│  ' .. route_line .. string.rep(' ', math.max(0, 58 - #route_line)) .. '│')
+            table.insert(content_lines, route_line)
         end
 
-        table.insert(content_lines, '│                                                              │')
-        table.insert(content_lines, '└─ Press <CR> to navigate, r to refresh, q to close ─────────┘')
+        -- Add help text
+        table.insert(content_lines, '')
+        table.insert(content_lines,
+            'Press <CR> to navigate • r to refresh • f to filter • m for method filter • q to close')
 
-        -- Calculate window size
-        local width = math.max(68, math.min(vim.o.columns - 4, 120))
+        -- Calculate window size based on content
+        local max_line_length = 0
+        for _, line in ipairs(content_lines) do
+            max_line_length = math.max(max_line_length, vim.fn.strwidth(line))
+        end
+
+        local width = math.min(math.max(max_line_length + 4, 80), vim.o.columns - 4)
         local height = math.min(#content_lines + 2, vim.o.lines - 4)
 
-        -- Show in floating window with custom styling
+        -- Show in floating window
         local float = ui.create_float({
             content = content_lines,
             title = ' 🚀 Laravel Routes ',
@@ -276,25 +279,27 @@ function M.show_routes()
         -- Custom syntax highlighting
         vim.cmd([[
             syntax clear
-            syntax match LaravelRouteBox /[┌┐└┘│─]/
             syntax match LaravelRouteMethod /\v(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)/
             syntax match LaravelRouteIcon /[🟢🔵🟡🟠🔴⚪⚫]/
-            syntax match LaravelRouteUri /\/[^│\s]*/
+            syntax match LaravelRouteUri /\/[^\s]*/
             syntax match LaravelRouteName /\w\+\.\w\+/
             syntax match LaravelRouteController /[A-Z]\w*Controller/
+            syntax match LaravelRouteSeparator /─\+/
+            syntax match LaravelRouteHelp /Press.*close$/
 
-            highlight link LaravelRouteBox Comment
             highlight link LaravelRouteMethod Keyword
             highlight link LaravelRouteIcon Special
             highlight link LaravelRouteUri String
             highlight link LaravelRouteName Identifier
             highlight link LaravelRouteController Function
+            highlight link LaravelRouteSeparator Comment
+            highlight link LaravelRouteHelp Comment
         ]])
 
         -- Enhanced navigation keymaps
         vim.keymap.set('n', '<CR>', function()
             local current_line = vim.api.nvim_win_get_cursor(0)[1]
-            local route_index = current_line - 5 -- Account for header lines
+            local route_index = current_line - 2 -- Account for header and separator
 
             if route_index > 0 and route_index <= #formatted_routes then
                 local selected_route = formatted_routes[route_index]
@@ -343,7 +348,9 @@ function M.show_routes()
         end, { buffer = float.buf, silent = true, desc = 'Filter by method' })
 
         -- Position cursor on first route
-        vim.api.nvim_win_set_cursor(float.win, { 6, 2 })
+        if #formatted_routes > 0 then
+            vim.api.nvim_win_set_cursor(float.win, { 3, 1 })
+        end
     end)
 end
 
