@@ -164,14 +164,15 @@ function M.parse_migration(file_path)
             end
 
             -- Parse foreign key constraints
-            local foreign_match = line:match(
-                "%$table%->foreign%s*%(%s*['\"]([^'\"]+)['\"]%s*%)%s*%->references%s*%(%s*['\"]([^'\"]+)['\"]%s*%)%s*%->on%s*%(%s*['\"]([^'\"]+)['\"]")
-            if foreign_match then
-                local local_key, foreign_key, foreign_table = foreign_match:match(
-                    "([^%)]+).*references%s*%(%s*['\"]([^'\"]+)['\"]%s*%)%s*%->on%s*%(%s*['\"]([^'\"]+)['\"]")
-                if local_key and foreign_key and foreign_table then
+            -- Look for $table->foreign('column')->references('id')->on('table')
+            local local_key = line:match("%$table%->foreign%s*%(%s*['\"]([^'\"]+)['\"]")
+            if local_key then
+                local foreign_key = line:match("%->references%s*%(%s*['\"]([^'\"]+)['\"]")
+                local foreign_table = line:match("%->on%s*%(%s*['\"]([^'\"]+)['\"]")
+
+                if foreign_key and foreign_table then
                     table.insert(schema_info.tables[current_table].foreign_keys, {
-                        local_key = local_key:match("['\"]([^'\"]+)['\"]") or local_key,
+                        local_key = local_key,
                         foreign_table = foreign_table,
                         foreign_key = foreign_key
                     })
