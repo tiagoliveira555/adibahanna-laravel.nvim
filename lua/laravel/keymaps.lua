@@ -48,11 +48,11 @@ local function setup_laravel_keymaps()
                 require('laravel.navigate').show_related_views()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show related views' }))
 
-            vim.keymap.set('n', '<leader>Lr', function()
+            vim.keymap.set('n', '<leader>LR', function()
                 require('laravel.routes').show_routes()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show routes' }))
 
-            vim.keymap.set('n', '<leader>LR', function()
+            vim.keymap.set('n', '<leader>Lr', function()
                 require('laravel.navigate').goto_route_file()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to route file' }))
 
