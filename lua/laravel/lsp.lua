@@ -37,6 +37,43 @@ local servers = {
     },
 }
 
+-- Setup built-in LSP without lspconfig
+local function setup_builtin_lsp()
+    -- Check for available PHP LSP server (prefer Intelephense)
+    local server_cmd = nil
+    local server_name = nil
+    local preferred_order = { 'intelephense', 'phpactor' }
+
+    for _, name in ipairs(preferred_order) do
+        if servers[name] and vim.fn.executable(servers[name].cmd[1]) == 1 then
+            server_cmd = servers[name].cmd
+            server_name = name
+            break
+        end
+    end
+
+    if not server_cmd then
+        vim.notify('No PHP LSP server found. Please install phpactor or intelephense.', vim.log.levels.WARN)
+        return
+    end
+
+    -- Auto-start LSP for PHP files
+    vim.api.nvim_create_autocmd('FileType', {
+        pattern = 'php',
+        callback = function(ev)
+            local root = vim.fs.root(ev.buf, { 'composer.json', '.git', 'artisan' })
+            if root then
+                vim.lsp.start({
+                    name = server_name,
+                    cmd = server_cmd,
+                    root_dir = root,
+                    settings = servers[server_name].settings or {},
+                }, { bufnr = ev.buf })
+            end
+        end,
+    })
+end
+
 -- Setup LSP for PHP files with Laravel enhancements
 local function setup_php_lsp()
     local lspconfig_ok, lspconfig = pcall(require, 'lspconfig')
@@ -99,43 +136,6 @@ local function setup_php_lsp()
         end,
         capabilities = vim.lsp.protocol.make_client_capabilities(),
     }))
-end
-
--- Setup built-in LSP without lspconfig
-local function setup_builtin_lsp()
-    -- Check for available PHP LSP server (prefer Intelephense)
-    local server_cmd = nil
-    local server_name = nil
-    local preferred_order = { 'intelephense', 'phpactor' }
-
-    for _, name in ipairs(preferred_order) do
-        if servers[name] and vim.fn.executable(servers[name].cmd[1]) == 1 then
-            server_cmd = servers[name].cmd
-            server_name = name
-            break
-        end
-    end
-
-    if not server_cmd then
-        vim.notify('No PHP LSP server found. Please install phpactor or intelephense.', vim.log.levels.WARN)
-        return
-    end
-
-    -- Auto-start LSP for PHP files
-    vim.api.nvim_create_autocmd('FileType', {
-        pattern = 'php',
-        callback = function(ev)
-            local root = vim.fs.root(ev.buf, { 'composer.json', '.git', 'artisan' })
-            if root then
-                vim.lsp.start({
-                    name = server_name,
-                    cmd = server_cmd,
-                    root_dir = root,
-                    settings = servers[server_name].settings or {},
-                }, { bufnr = ev.buf })
-            end
-        end,
-    })
 end
 
 -- Setup Laravel-specific LSP features
