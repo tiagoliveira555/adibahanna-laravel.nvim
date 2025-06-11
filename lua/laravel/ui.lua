@@ -21,10 +21,10 @@ function M.select(items, opts, on_choice)
         formatted_items[i] = display_item
     end
 
-    -- Use telescope if available, otherwise fall back to vim.ui.select
-    local has_telescope, telescope = pcall(require, 'telescope.pickers')
-    if has_telescope and opts.use_telescope ~= false then
-        M.telescope_select(formatted_items, opts, function(choice)
+    -- Use snacks.nvim picker if available, otherwise fall back to vim.ui.select
+    local has_snacks, snacks = pcall(require, 'snacks')
+    if has_snacks and snacks.picker and opts.use_snacks ~= false then
+        M.snacks_select(formatted_items, opts, function(choice)
             if choice and on_choice then
                 on_choice(item_map[choice])
             end
@@ -43,37 +43,30 @@ function M.select(items, opts, on_choice)
     end
 end
 
--- Telescope-based selection (if telescope is available)
-function M.telescope_select(items, opts, on_choice)
-    local has_telescope, pickers = pcall(require, 'telescope.pickers')
-    local has_finders, finders = pcall(require, 'telescope.finders')
-    local has_conf, conf = pcall(require, 'telescope.config')
-    local has_actions, actions = pcall(require, 'telescope.actions')
-    local has_action_state, action_state = pcall(require, 'telescope.actions.state')
+-- Snacks.nvim-based selection (if snacks.nvim is available)
+function M.snacks_select(items, opts, on_choice)
+    local has_snacks, snacks = pcall(require, 'snacks')
 
-    if not (has_telescope and has_finders and has_conf and has_actions and has_action_state) then
+    if not (has_snacks and snacks.picker) then
         -- Fallback to vim.ui.select
         vim.ui.select(items, opts, on_choice)
         return
     end
 
-    pickers.new(opts, {
-        prompt_title = opts.prompt or 'Select',
-        finder = finders.new_table({
-            results = items,
-        }),
-        sorter = conf.values.generic_sorter(opts),
-        attach_mappings = function(prompt_bufnr, map)
-            actions.select_default:replace(function()
-                actions.close(prompt_bufnr)
-                local selection = action_state.get_selected_entry()
-                if selection and on_choice then
-                    on_choice(selection[1])
-                end
-            end)
-            return true
+    -- Use snacks picker with simple selection
+    snacks.picker({
+        source = items,
+        title = opts.prompt or 'Select',
+        format = function(item)
+            return tostring(item)
         end,
-    }):find()
+        select = function(item, ctx)
+            if item and on_choice then
+                on_choice(item)
+            end
+            ctx:close()
+        end,
+    }):open()
 end
 
 -- Input dialog with validation
@@ -107,10 +100,20 @@ function M.notify(message, level, opts)
     level = level or vim.log.levels.INFO
     opts = opts or {}
 
-    vim.notify(message, level, {
-        title = opts.title or 'Laravel.nvim',
-        timeout = opts.timeout,
-    })
+    -- Use snacks.nvim notifier if available
+    local has_snacks, snacks = pcall(require, 'snacks')
+    if has_snacks and snacks.notifier then
+        snacks.notifier.notify(message, {
+            title = opts.title or 'Laravel.nvim',
+            level = level,
+            timeout = opts.timeout,
+        })
+    else
+        vim.notify(message, level, {
+            title = opts.title or 'Laravel.nvim',
+            timeout = opts.timeout,
+        })
+    end
 end
 
 -- Show info message

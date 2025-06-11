@@ -44,16 +44,22 @@ A comprehensive Neovim plugin for Laravel development that provides intelligent 
 - Blade template LSP support
 - Intelligent diagnostics and completions
 
+### 🎨 Modern UI Integration
+- Optional [Snacks.nvim](https://github.com/folke/snacks.nvim/) integration for enhanced UI
+- Beautiful fuzzy finding with modern picker interface
+- Enhanced notifications and floating windows
+- Graceful fallback to built-in vim.ui when snacks.nvim is not available
+
 ## 📦 Installation
 
 ### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
 
 ```lua
 {
-  'your-username/laravel.nvim',
+  'adibhanna/laravel.nvim',
   ft = { 'php', 'blade' },
   dependencies = {
-    'nvim-telescope/telescope.nvim', -- Optional: for better UI
+    'folke/snacks.nvim', -- Optional: for enhanced UI
   },
   config = function()
     -- Plugin will auto-configure when entering a Laravel project
@@ -65,10 +71,10 @@ A comprehensive Neovim plugin for Laravel development that provides intelligent 
 
 ```lua
 use {
-  'your-username/laravel.nvim',
+  'adibhanna/laravel.nvim',
   ft = { 'php', 'blade' },
   requires = {
-    'nvim-telescope/telescope.nvim', -- Optional
+    'folke/snacks.nvim', -- Optional
   },
   config = function()
     -- Auto-setup on Laravel project detection
@@ -204,18 +210,20 @@ vim.g.laravel_nvim_config = {
   
   -- UI preferences
   ui = {
-    use_telescope = true, -- Use Telescope for selections if available
+    use_snacks = true, -- Use Snacks.nvim for selections if available
   },
 }
 ```
 
 ## 🔌 Integration
 
-### Telescope.nvim
-Laravel.nvim integrates seamlessly with Telescope for enhanced UI:
-- Better file selection interfaces
-- Fuzzy finding for Laravel components
-- Enhanced route and command browsing
+### Snacks.nvim
+Laravel.nvim integrates seamlessly with [Snacks.nvim](https://github.com/folke/snacks.nvim/) for enhanced UI:
+- Beautiful picker interface for selections with fuzzy finding
+- Enhanced notifications for better user feedback
+- Consistent UI experience across all Laravel operations
+- Modern floating windows for route browsing and file selection
+- Better performance compared to traditional pickers
 
 ### Tree-sitter
 Blade syntax highlighting works with tree-sitter when available.
