@@ -389,25 +389,33 @@ end
 
 -- Generate relationship diagram (using existing models analysis)
 function M.generate_relationship_diagram()
-    -- Use existing models analysis from models.lua
+    -- Use existing models analysis from navigate.lua
+    local navigate_module = require('laravel.navigate')
     local models_module = require('laravel.models')
-    local models_list = models_module.find_models()
+    local models_list = navigate_module.find_models()
 
     local lines = {}
     table.insert(lines, 'graph TD')
     table.insert(lines, '    %% Model Relationships')
     table.insert(lines, '')
 
+    if #models_list == 0 then
+        table.insert(lines, '    NoModels["No models found"]')
+        return table.concat(lines, '\n')
+    end
+
     for _, model in ipairs(models_list) do
         local node_id = 'M_' .. model.name:gsub('[^%w]', '_')
         table.insert(lines, '    ' .. node_id .. '["📊 ' .. model.name .. '"]')
 
-        -- Try to analyze relationships
-        local relationships = models_module.extract_relationships(model.path)
-        for _, rel in ipairs(relationships) do
-            local related_node = 'M_' .. rel.model:gsub('[^%w]', '_')
-            local relationship_label = rel.type .. ' (' .. rel.method .. ')'
-            table.insert(lines, '    ' .. node_id .. ' --> ' .. related_node .. ' : "' .. relationship_label .. '"')
+        -- Try to analyze relationships using models module
+        local model_info = models_module.analyze_model(model.path)
+        if model_info and model_info.relationships then
+            for _, rel in ipairs(model_info.relationships) do
+                local related_node = 'M_' .. rel.related_model:gsub('[^%w]', '_')
+                local relationship_label = rel.type .. ' (' .. rel.method .. ')'
+                table.insert(lines, '    ' .. node_id .. ' --> ' .. related_node .. ' : "' .. relationship_label .. '"')
+            end
         end
     end
 
