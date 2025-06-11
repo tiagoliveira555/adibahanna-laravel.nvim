@@ -285,11 +285,18 @@ end
 function M.show_architecture_diagram(diagram_type)
     if not diagram_type then
         -- Show picker for diagram type
-        ui.select({ 'Application Flow', 'Model Relationships', 'Route Mapping' }, {
+        ui.select({
+            'Application Flow (Simplified)',
+            'Application Flow (Detailed)',
+            'Model Relationships',
+            'Route Mapping'
+        }, {
             prompt = 'Select architecture diagram type:',
         }, function(choice)
-            if choice == 'Application Flow' then
-                M.show_architecture_diagram('flow')
+            if choice == 'Application Flow (Simplified)' then
+                M.show_architecture_diagram('flow_simple')
+            elseif choice == 'Application Flow (Detailed)' then
+                M.show_architecture_diagram('flow_detailed')
             elseif choice == 'Model Relationships' then
                 M.show_architecture_diagram('relationships')
             elseif choice == 'Route Mapping' then
@@ -299,11 +306,13 @@ function M.show_architecture_diagram(diagram_type)
         return
     end
 
-    ui.info('Generating ' .. diagram_type .. ' architecture diagram...')
+    ui.info('Generating ' .. diagram_type:gsub('_', ' ') .. ' architecture diagram...')
 
     local diagram = ''
-    if diagram_type == 'flow' then
-        diagram = M.generate_flow_diagram()
+    if diagram_type == 'flow_simple' then
+        diagram = M.generate_simple_flow_diagram()
+    elseif diagram_type == 'flow_detailed' then
+        diagram = M.generate_detailed_flow_diagram()
     elseif diagram_type == 'relationships' then
         diagram = M.generate_relationship_diagram()
     elseif diagram_type == 'routes' then
@@ -325,7 +334,7 @@ function M.show_architecture_diagram(diagram_type)
         local buf = vim.api.nvim_create_buf(false, true)
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(diagram, '\n'))
         vim.api.nvim_buf_set_option(buf, 'filetype', 'mermaid')
-        vim.api.nvim_buf_set_name(buf, 'Laravel Architecture - ' .. diagram_type:gsub('^%l', string.upper))
+        vim.api.nvim_buf_set_name(buf, 'Laravel Architecture - ' .. diagram_type:gsub('_', ' '):gsub('^%l', string.upper))
         vim.cmd('split')
         vim.api.nvim_set_current_buf(buf)
         ui.info('Architecture diagram displayed in buffer')
@@ -333,7 +342,7 @@ function M.show_architecture_diagram(diagram_type)
 end
 
 -- Generate detailed application flow diagram
-function M.generate_flow_diagram()
+function M.generate_detailed_flow_diagram()
     local routes = M.analyze_routes()
     local controllers = M.analyze_controllers()
     local navigate_module = require('laravel.navigate')
@@ -521,6 +530,150 @@ function M.generate_flow_diagram()
     table.insert(lines,
         '    class ViewEngine,APIResponse,FileResponse,RedirectResponse,ResponseMiddleware,FinalResponse response')
     table.insert(lines, '    class Jobs background')
+
+    return table.concat(lines, '\n')
+end
+
+-- Generate simplified application flow diagram
+function M.generate_simple_flow_diagram()
+    local routes = M.analyze_routes()
+    local controllers = M.analyze_controllers()
+
+    local lines = {}
+    table.insert(lines, 'flowchart TD')
+    table.insert(lines, '    %% Laravel Application Flow (Simplified)')
+    table.insert(lines, '')
+
+    -- Define main flow nodes
+    table.insert(lines, '    Client[("👤 Client<br/>HTTP Request")]')
+    table.insert(lines, '    Routes["🛣️ Routes<br/>web.php, api.php"]')
+    table.insert(lines, '    Middleware["🔒 Middleware<br/>Auth, CORS, etc."]')
+    table.insert(lines, '    Database[("🗄️ Database<br/>MySQL/PostgreSQL")]')
+    table.insert(lines, '    Cache["💾 Cache<br/>Redis/Memory"]')
+    table.insert(lines, '    Response["📤 Response<br/>JSON/HTML/Redirect"]')
+    table.insert(lines, '')
+
+    -- Controllers (simplified)
+    local controller_nodes = {}
+    for controller_name, controller_info in pairs(controllers) do
+        if #controller_info.methods > 0 then
+            local node_id = 'C_' .. controller_name:gsub('[^%w]', '_')
+            local method_count = #controller_info.methods
+            table.insert(lines,
+                '    ' .. node_id .. '["🎮 ' .. controller_name .. '<br/>(' .. method_count .. ' methods)"]')
+            controller_nodes[controller_name] = node_id
+        end
+    end
+
+    table.insert(lines, '')
+
+    -- Models (simplified)
+    local navigate_module = require('laravel.navigate')
+    local models_list = navigate_module.find_models()
+    local model_nodes = {}
+
+    if #models_list > 0 then
+        table.insert(lines, '    Models["📊 Models<br/>(' .. #models_list .. ' models)"]')
+
+        -- Show individual models if there are few, otherwise group them
+        if #models_list <= 5 then
+            for _, model in ipairs(models_list) do
+                local node_id = 'M_' .. model.name:gsub('[^%w]', '_')
+                table.insert(lines, '    ' .. node_id .. '["📋 ' .. model.name .. '"]')
+                model_nodes[model.name] = node_id
+            end
+        end
+    end
+
+    table.insert(lines, '')
+
+    -- Basic flow connections
+    table.insert(lines, '    %% Request Flow')
+    table.insert(lines, '    Client --> Routes')
+    table.insert(lines, '    Routes --> Middleware')
+
+    -- Connect to controllers
+    local connected_controllers = {}
+    for _, route in ipairs(routes) do
+        local controller_node = controller_nodes[route.controller]
+        if controller_node and not connected_controllers[controller_node] then
+            table.insert(lines, '    Middleware --> ' .. controller_node)
+            connected_controllers[controller_node] = true
+        end
+    end
+
+    -- Controller connections
+    if #models_list <= 5 and #model_nodes > 0 then
+        -- Connect to individual models
+        for controller_name, controller_node in pairs(controller_nodes) do
+            local controller_info = controllers[controller_name]
+            if controller_info then
+                for _, model_name in ipairs(controller_info.models) do
+                    local model_node = model_nodes[model_name]
+                    if model_node then
+                        table.insert(lines, '    ' .. controller_node .. ' --> ' .. model_node)
+                    end
+                end
+            end
+        end
+
+        -- Connect individual models to database
+        for _, model_node in pairs(model_nodes) do
+            table.insert(lines, '    ' .. model_node .. ' --> Database')
+            table.insert(lines, '    ' .. model_node .. ' --> Cache')
+        end
+    else
+        -- Connect to grouped models
+        if #models_list > 0 then
+            for _, controller_node in pairs(controller_nodes) do
+                table.insert(lines, '    ' .. controller_node .. ' --> Models')
+            end
+            table.insert(lines, '    Models --> Database')
+            table.insert(lines, '    Models --> Cache')
+        else
+            -- No models, connect directly to database
+            for _, controller_node in pairs(controller_nodes) do
+                table.insert(lines, '    ' .. controller_node .. ' --> Database')
+                table.insert(lines, '    ' .. controller_node .. ' --> Cache')
+            end
+        end
+    end
+
+    -- Response flow
+    for _, controller_node in pairs(controller_nodes) do
+        table.insert(lines, '    ' .. controller_node .. ' --> Response')
+    end
+
+    table.insert(lines, '    Response --> Client')
+    table.insert(lines, '')
+
+    -- Add simplified styling
+    table.insert(lines, '    %% Styling')
+    table.insert(lines, '    classDef client fill:#e3f2fd,stroke:#1976d2,stroke-width:2px')
+    table.insert(lines, '    classDef routing fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px')
+    table.insert(lines, '    classDef controller fill:#e8f5e8,stroke:#388e3c,stroke-width:2px')
+    table.insert(lines, '    classDef data fill:#e0f2f1,stroke:#00796b,stroke-width:2px')
+    table.insert(lines, '    classDef response fill:#fff8e1,stroke:#fbc02d,stroke-width:2px')
+    table.insert(lines, '')
+
+    -- Apply styles
+    table.insert(lines, '    class Client client')
+    table.insert(lines, '    class Routes,Middleware routing')
+
+    for _, controller_node in pairs(controller_nodes) do
+        table.insert(lines, '    class ' .. controller_node .. ' controller')
+    end
+
+    if #models_list <= 5 then
+        for _, model_node in pairs(model_nodes) do
+            table.insert(lines, '    class ' .. model_node .. ' controller')
+        end
+    else
+        table.insert(lines, '    class Models controller')
+    end
+
+    table.insert(lines, '    class Database,Cache data')
+    table.insert(lines, '    class Response response')
 
     return table.concat(lines, '\n')
 end
