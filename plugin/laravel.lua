@@ -131,6 +131,15 @@ local function setup_commands()
         desc = 'Laravel make commands with fuzzy finder'
     })
 
+    -- Schema diagram commands
+    vim.api.nvim_create_user_command('LaravelSchema', function()
+        require('laravel.schema').show_schema_diagram(false)
+    end, { desc = 'Show Laravel database schema diagram' })
+
+    vim.api.nvim_create_user_command('LaravelSchemaExport', function()
+        require('laravel.schema').show_schema_diagram(true)
+    end, { desc = 'Export Laravel database schema diagram to file' })
+
     -- Debug command to check Laravel status
     vim.api.nvim_create_user_command('LaravelStatus', function()
         local is_laravel = _G.laravel_nvim.is_laravel_project

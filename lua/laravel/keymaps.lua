@@ -13,6 +13,8 @@ local M = {}
 --   <leader>La - Run artisan command
 --   <leader>Lk - Laravel make command
 --   <leader>Ls - Show Laravel status
+--   <leader>LS - Show schema diagram
+--   <leader>LE - Export schema diagram
 --
 -- Model-specific (in model files):
 --   <leader>LR - Show model relationships
@@ -62,6 +64,14 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>Ls', function()
                 vim.cmd('LaravelStatus')
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show status' }))
+
+            vim.keymap.set('n', '<leader>LS', function()
+                require('laravel.schema').show_schema_diagram(false)
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show schema diagram' }))
+
+            vim.keymap.set('n', '<leader>LE', function()
+                require('laravel.schema').show_schema_diagram(true)
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Export schema diagram' }))
         end,
     })
 
