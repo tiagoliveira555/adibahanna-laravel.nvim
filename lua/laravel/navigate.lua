@@ -235,6 +235,10 @@ function M.goto_related()
     local current_file = vim.fn.expand('%:p')
     local root = get_project_root()
 
+    -- Debug information
+    print('Debug: Current file:', current_file)
+    print('Debug: Project root:', root)
+
     if not root or not current_file:find(root, 1, true) then
         ui.warn('Not in a Laravel project')
         return
@@ -243,14 +247,21 @@ function M.goto_related()
     local relative_path = current_file:sub(#root + 2) -- +2 for the slash
     local related_files = {}
 
+    -- Debug information
+    print('Debug: Relative path:', relative_path)
+
     -- Determine current file type and find related files
     if relative_path:match('^app/Http/Controllers/') then
+        print('Debug: Detected controller file')
         -- Current file is a controller
         local controller_name = vim.fn.fnamemodify(current_file, ':t:r') -- filename without extension
         local base_name = controller_name:gsub('Controller$', '')
 
+        print('Debug: Controller name:', controller_name, 'Base name:', base_name)
+
         -- Look for related model
         local models = M.find_models()
+        print('Debug: Found', #models, 'models')
         for _, model in ipairs(models) do
             if model.name == base_name or model.name == base_name:gsub('s$', '') then -- Handle plurals
                 related_files[#related_files + 1] = {
@@ -264,6 +275,7 @@ function M.goto_related()
         -- Look for related views
         local views = require('laravel.blade').find_views()
         local view_prefix = base_name:lower()
+        print('Debug: Looking for views with prefix:', view_prefix)
         for _, view in ipairs(views) do
             if view.name:match('^' .. view_prefix) then
                 related_files[#related_files + 1] = {
@@ -274,12 +286,17 @@ function M.goto_related()
             end
         end
     elseif relative_path:match('^app/Models/') or relative_path:match('^app/.*%.php$') then
+        print('Debug: Detected model file')
         -- Current file is a model
         local model_name = vim.fn.fnamemodify(current_file, ':t:r')
+
+        print('Debug: Model name:', model_name)
 
         -- Look for related controller
         local controllers = M.find_controllers()
         local controller_patterns = { model_name .. 'Controller', model_name .. 'sController' }
+
+        print('Debug: Looking for controllers:', vim.inspect(controller_patterns))
 
         for _, controller in ipairs(controllers) do
             for _, pattern in ipairs(controller_patterns) do
@@ -314,11 +331,14 @@ function M.goto_related()
             end
         end
     elseif relative_path:match('%.blade%.php$') then
+        print('Debug: Detected blade file')
         -- Current file is a view
         local view_name = require('laravel.blade').get_current_view_name()
         if view_name then
             local view_parts = vim.split(view_name, '%.')
             local controller_name = vim.fn.substitute(view_parts[1], '^.', '\\u&', '') .. 'Controller'
+
+            print('Debug: View name:', view_name, 'Looking for controller:', controller_name)
 
             -- Look for related controller
             local controllers = M.find_controllers()
@@ -333,7 +353,11 @@ function M.goto_related()
                 end
             end
         end
+    else
+        print('Debug: File type not recognized for:', relative_path)
     end
+
+    print('Debug: Found', #related_files, 'related files')
 
     -- Show related files
     if #related_files == 0 then
