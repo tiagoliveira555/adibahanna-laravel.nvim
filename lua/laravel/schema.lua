@@ -109,12 +109,15 @@ function M.parse_migration(file_path)
             -- Parse various column types
             local column_patterns = {
                 {
-                    pattern = "%$table%->id%s*%(%s*['\"]?([^'\"%)]*)['\"]?%s*%)",
+                    pattern = "%$table%->id%s*%(%s*%)",
                     type = 'id',
-                    name = function(
-                        match)
-                        return match ~= '' and match or 'id'
+                    name = function()
+                        return 'id'
                     end
+                },
+                {
+                    pattern = "%$table%->id%s*%(%s*['\"]([^'\"]+)['\"]%s*%)",
+                    type = 'id'
                 },
                 { pattern = "%$table%->string%s*%(%s*['\"]([^'\"]+)['\"]",     type = 'string' },
                 { pattern = "%$table%->text%s*%(%s*['\"]([^'\"]+)['\"]",       type = 'text' },
