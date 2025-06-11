@@ -12,12 +12,10 @@ local M = {}
 --   <leader>La - Run artisan command
 --   <leader>Lk - Laravel make command
 --   <leader>Ls - Show Laravel status
---   <leader>Lg - Go to related file
 --
 -- Model-specific (in model files):
 --   <leader>LR - Show model relationships
 --   <leader>LA - Show model attributes
---   <leader>LG - Go to related model
 --
 -- Migration-specific (in migration files):
 --   <leader>Li - Show migration info
@@ -59,10 +57,6 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>Ls', function()
                 vim.cmd('LaravelStatus')
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show status' }))
-
-            vim.keymap.set('n', '<leader>Lg', function()
-                require('laravel.navigate').goto_related()
-            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to related file' }))
         end,
     })
 

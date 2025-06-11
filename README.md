@@ -104,12 +104,12 @@ All Laravel keymaps use the `<leader>L` prefix for better organization and to av
 - `<leader>La` - Run artisan command
 - `<leader>Lk` - Laravel make command
 - `<leader>Ls` - Show Laravel status
-- `<leader>Lg` - Go to related file
+
 
 #### Model-Specific (in model files)
 - `<leader>LR` - Show model relationships
 - `<leader>LA` - Show model attributes
-- `<leader>LG` - Go to related model
+
 
 #### Migration-Specific (in migration files)
 - `<leader>Li` - Show migration info

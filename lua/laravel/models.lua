@@ -220,35 +220,6 @@ function M.show_attributes()
     })
 end
 
--- Navigate to related model
-function M.goto_related_model()
-    local model_info = M.get_current_model_info()
-    if not model_info then
-        ui.warn('Not in a model file')
-        return
-    end
-
-    if #model_info.relationships == 0 then
-        ui.info('No relationships found in this model')
-        return
-    end
-
-    local items = {}
-    for _, rel in ipairs(model_info.relationships) do
-        items[#items + 1] = string.format('%s (%s)', rel.related_model, rel.type)
-    end
-
-    ui.select(items, {
-        prompt = 'Select related model:',
-        kind = 'laravel_related_model',
-    }, function(choice)
-        if choice then
-            local model_name = choice:match('([^%s%(]+)')
-            require('laravel.navigate').goto_model(model_name)
-        end
-    end)
-end
-
 -- Setup model-specific keymaps
 local function setup_model_keymaps()
     vim.api.nvim_create_autocmd('FileType', {
@@ -274,11 +245,6 @@ local function setup_model_keymaps()
                 vim.keymap.set('n', '<leader>LA', M.show_attributes, {
                     buffer = true,
                     desc = 'Laravel: Show model attributes'
-                })
-
-                vim.keymap.set('n', '<leader>LG', M.goto_related_model, {
-                    buffer = true,
-                    desc = 'Laravel: Go to related model'
                 })
             end
         end,
