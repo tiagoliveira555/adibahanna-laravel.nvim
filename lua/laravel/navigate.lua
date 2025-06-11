@@ -37,10 +37,7 @@ function M.find_controllers()
 
             if vim.fn.isdirectory(full_path) == 1 then
                 -- Recursively scan subdirectories
-                local subcontrollers = scan_directory(full_path, namespace .. '\\' .. item)
-                for _, controller in ipairs(subcontrollers) do
-                    controllers[#controllers + 1] = controller
-                end
+                scan_directory(full_path, namespace .. '\\' .. item)
             elseif item:match('%.php$') and item:match('Controller%.php$') then
                 local class_name = item:gsub('%.php$', '')
                 controllers[#controllers + 1] = {
