@@ -17,19 +17,55 @@ local function extract_relationships(content)
         'morphedByMany'
     }
 
-    for _, line in ipairs(content) do
-        for _, rel_type in ipairs(relationship_types) do
-            local pattern = 'function%s+(%w+)%s*%([^)]*%)%s*{?%s*return%s*%$this%->' .. rel_type
-            local method_name = line:match(pattern)
-            if method_name then
-                local model_class = line:match(rel_type .. '%s*%(%s*([^%s,)]+)')
-                if model_class then
-                    model_class = model_class:gsub('[\'"]', '')
-                    relationships[#relationships + 1] = {
-                        method = method_name,
-                        type = rel_type,
-                        related_model = model_class,
-                    }
+    local current_method = nil
+    local in_method = false
+
+    for i, line in ipairs(content) do
+        -- Look for function definitions
+        local method_name = line:match('function%s+(%w+)%s*%([^)]*%)')
+        if method_name then
+            current_method = method_name
+            in_method = true
+        end
+
+        -- Look for closing brace to end method
+        if in_method and line:match('^%s*}%s*$') then
+            in_method = false
+            current_method = nil
+        end
+
+        -- Look for relationship types in the current method
+        if in_method and current_method then
+            for _, rel_type in ipairs(relationship_types) do
+                if line:match('%$this%->' .. rel_type) then
+                    local model_class = nil
+
+                    -- Try to extract model class from current line
+                    model_class = line:match(rel_type .. '%s*%(%s*([^%s,)]+)')
+
+                    -- If not found on current line, check next few lines
+                    if not model_class then
+                        for j = i + 1, math.min(i + 3, #content) do
+                            local next_line = content[j]
+                            model_class = next_line:match('([A-Z][%w\\]*)::[%w]+') or
+                                next_line:match('[\'"]([A-Z][%w\\]*)[\'"]') or
+                                next_line:match('([A-Z][%w\\]*)%.class')
+                            if model_class then break end
+                        end
+                    end
+
+                    if model_class then
+                        model_class = model_class:gsub('[\'"]', '')
+                        -- Extract just the class name if it includes namespace
+                        local class_name = model_class:match('([^\\]+)$') or model_class
+
+                        relationships[#relationships + 1] = {
+                            method = current_method,
+                            type = rel_type,
+                            related_model = class_name,
+                        }
+                    end
+                    break -- Found a relationship in this method, move to next line
                 end
             end
         end
@@ -154,6 +190,9 @@ function M.show_relationships()
         ui.warn('Not in a model file')
         return
     end
+
+    -- Debug information
+    print('Debug: Found', #model_info.relationships, 'relationships in model', model_info.name)
 
     if #model_info.relationships == 0 then
         ui.info('No relationships found in this model')
