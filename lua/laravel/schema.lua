@@ -340,7 +340,7 @@ function M.show_schema_diagram(export_to_file)
 
         local export_path = root .. '/database-schema.mmd'
         vim.fn.writefile(vim.split(mermaid_diagram, '\n'), export_path)
-        ui.success('Schema diagram exported to: ' .. export_path)
+        ui.info('Schema diagram exported to: ' .. export_path)
 
         -- Ask if user wants to open the file
         ui.select({ 'Yes', 'No' }, {
