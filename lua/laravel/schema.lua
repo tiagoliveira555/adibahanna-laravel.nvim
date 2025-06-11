@@ -73,10 +73,14 @@ function M.parse_migration(file_path)
         line = line:match('^%s*(.-)%s*$') or line
 
         -- Detect Schema::create or Schema::table calls
-        local create_match = line:match("Schema::create%s*%(%s*['\"]([^'\"]+)['\"]")
-        local table_match = line:match("Schema::table%s*%(%s*['\"]([^'\"]+)['\"]")
+        local success_create, create_match = pcall(function()
+            return line:match("Schema::create%s*%(%s*['\"]([^'\"]+)['\"]")
+        end)
+        local success_table, table_match = pcall(function()
+            return line:match("Schema::table%s*%(%s*['\"]([^'\"]+)['\"]")
+        end)
 
-        if create_match then
+        if success_create and create_match then
             current_table = create_match
             in_schema_block = true
             schema_info.tables[current_table] = {
@@ -88,7 +92,7 @@ function M.parse_migration(file_path)
                 type = 'create',
                 table = current_table
             })
-        elseif table_match then
+        elseif success_table and table_match then
             current_table = table_match
             in_schema_block = true
             if not schema_info.tables[current_table] then
@@ -195,7 +199,10 @@ function M.parse_migration(file_path)
             end
 
             -- Detect end of schema block
-            if line:match('});') then
+            local success_end = pcall(function()
+                return line:match('});')
+            end)
+            if success_end and line:match('});') then
                 in_schema_block = false
                 current_table = nil
             end
