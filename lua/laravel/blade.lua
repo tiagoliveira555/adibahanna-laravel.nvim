@@ -136,9 +136,33 @@ local function setup_blade_snippets()
     vim.api.nvim_create_autocmd('FileType', {
         pattern = 'blade',
         callback = function()
-            -- Add Blade-specific snippets
+            -- Add Blade-specific snippets using buffer-local keymaps
             for _, snippet in ipairs(blade_directives) do
-                vim.snippet.add(snippet.trigger, snippet.body, { buffer = 0 })
+                local trigger = snippet.trigger
+                local body = snippet.body
+
+                -- Create buffer-local keymap that expands to snippet
+                vim.keymap.set('i', trigger .. '<Tab>', function()
+                    -- Remove the trigger text
+                    local pos = vim.api.nvim_win_get_cursor(0)
+                    local line = vim.api.nvim_get_current_line()
+                    local before_cursor = line:sub(1, pos[2])
+                    local after_cursor = line:sub(pos[2] + 1)
+
+                    -- Check if the trigger is at the end of the line before cursor
+                    if before_cursor:sub(- #trigger) == trigger then
+                        local new_before = before_cursor:sub(1, - #trigger - 1)
+                        local new_line = new_before .. after_cursor
+                        vim.api.nvim_set_current_line(new_line)
+                        vim.api.nvim_win_set_cursor(0, { pos[1], #new_before })
+
+                        -- Expand the snippet
+                        vim.snippet.expand(body)
+                    else
+                        -- Fallback: just insert tab
+                        vim.api.nvim_feedkeys('\t', 'n', false)
+                    end
+                end, { buffer = 0, desc = 'Expand ' .. trigger .. ' snippet' })
             end
         end,
     })
