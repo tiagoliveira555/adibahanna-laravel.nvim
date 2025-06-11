@@ -274,35 +274,59 @@ function M.show_related_views()
         print('Debug: Controller name:', controller_name)
         print('Debug: Base name:', base_name)
 
-        -- Find views that match the controller name
-        local views = require('laravel.blade').find_views()
-        local view_prefix = base_name:lower()
+        -- Read controller content to find actual view calls
+        local content = vim.fn.readfile(current_file)
+        local view_patterns = {}
 
-        print('Debug: Found', #views, 'total views')
-        print('Debug: Looking for views with prefix:', view_prefix)
+        -- Look for view() calls and Inertia::render() calls
+        for _, line in ipairs(content) do
+            -- Traditional Laravel views: view('auth.register'), view("posts.show")
+            local view_match = line:match("view%s*%(%s*['\"]([^'\"]+)['\"]")
+            if view_match then
+                print('Debug: Found view() call:', view_match)
+                table.insert(view_patterns, view_match)
+            end
 
-        -- Look for views with matching prefix (users.*, posts.*, etc.)
-        for _, view in ipairs(views) do
-            print('Debug: Checking view:', view.name)
-            if view.name:match('^' .. view_prefix .. '%.') or view.name:match('^' .. view_prefix .. '$') then
-                print('Debug: Match found (prefix):', view.name)
-                related_views[#related_views + 1] = {
-                    name = view.name,
-                    path = view.path,
-                    match_type = 'prefix'
-                }
+            -- Inertia views: Inertia::render('auth/register'), Inertia::render("Posts/Show")
+            local inertia_match = line:match("Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]")
+            if inertia_match then
+                print('Debug: Found Inertia::render() call:', inertia_match)
+                -- Convert Inertia path to view name (auth/register -> auth.register)
+                local view_name = inertia_match:gsub('/', '.')
+                table.insert(view_patterns, view_name)
             end
         end
 
-        -- Also look for exact matches in subdirectories (users/index, users/show, etc.)
-        for _, view in ipairs(views) do
-            if view.name:match('^' .. view_prefix .. '/') then
-                print('Debug: Match found (directory):', view.name)
-                related_views[#related_views + 1] = {
-                    name = view.name,
-                    path = view.path,
-                    match_type = 'directory'
-                }
+        -- If no specific view calls found, fall back to controller name pattern
+        if #view_patterns == 0 then
+            local view_prefix = base_name:lower()
+            print('Debug: No specific views found, using controller prefix:', view_prefix)
+            table.insert(view_patterns, view_prefix)
+        end
+
+        -- Find views that match the detected patterns
+        local views = require('laravel.blade').find_views()
+        print('Debug: Found', #views, 'total views')
+        print('Debug: View patterns to match:', vim.inspect(view_patterns))
+
+        for _, pattern in ipairs(view_patterns) do
+            -- Extract prefix from pattern (auth.register -> auth)
+            local prefix = pattern:match('([^%.]+)') or pattern
+
+            for _, view in ipairs(views) do
+                print('Debug: Checking view:', view.name, 'against prefix:', prefix)
+                -- Match views with same prefix
+                if view.name:match('^' .. prefix .. '%.') or
+                    view.name:match('^' .. prefix .. '$') or
+                    view.name:match('^' .. prefix .. '/') or
+                    view.name == pattern then
+                    print('Debug: Match found:', view.name)
+                    related_views[#related_views + 1] = {
+                        name = view.name,
+                        path = view.path,
+                        match_type = 'controller_view'
+                    }
+                end
             end
         end
     elseif relative_path:match('^routes/') then
