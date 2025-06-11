@@ -62,6 +62,8 @@ function M.find_models()
     local app_path = root .. '/app'
 
     local models = {}
+    local seen_names = {} -- Track seen model names to prevent duplicates
+
     local function scan_directory(dir, namespace, is_models_dir)
         namespace = namespace or 'App'
 
@@ -92,6 +94,11 @@ function M.find_models()
             elseif item:match('%.php$') then
                 local class_name = item:gsub('%.php$', '')
 
+                -- Skip if we've already seen this model name
+                if seen_names[class_name] then
+                    goto continue
+                end
+
                 -- Check if this looks like a model
                 local is_model = false
                 if is_models_dir then
@@ -108,23 +115,28 @@ function M.find_models()
                 end
 
                 if is_model then
+                    seen_names[class_name] = true
                     models[#models + 1] = {
                         name = class_name,
                         namespace = namespace .. '\\' .. class_name,
                         path = full_path,
                     }
                 end
+
+                ::continue::
             end
         end
     end
 
-    -- First try Models directory (Laravel 8+)
+    -- First scan Models directory (Laravel 8+) - prioritize this
     if vim.fn.isdirectory(models_path) == 1 then
         scan_directory(models_path, 'App\\Models', true)
     end
 
-    -- Also scan app root for models (Laravel < 8)
-    scan_directory(app_path, 'App', false)
+    -- Only scan app root for models (Laravel < 8) if Models directory doesn't exist
+    if vim.fn.isdirectory(models_path) == 0 then
+        scan_directory(app_path, 'App', false)
+    end
 
     return models
 end
