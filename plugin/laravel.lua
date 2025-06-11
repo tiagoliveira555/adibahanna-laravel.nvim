@@ -140,6 +140,11 @@ local function setup_commands()
         require('laravel.schema').show_schema_diagram(true)
     end, { desc = 'Export Laravel database schema diagram to file' })
 
+    -- Architecture diagram commands
+    vim.api.nvim_create_user_command('LaravelArchitecture', function()
+        require('laravel.architecture').show_architecture_diagram()
+    end, { desc = 'Show Laravel application architecture diagram' })
+
     -- Debug command to check Laravel status
     vim.api.nvim_create_user_command('LaravelStatus', function()
         local is_laravel = _G.laravel_nvim.is_laravel_project

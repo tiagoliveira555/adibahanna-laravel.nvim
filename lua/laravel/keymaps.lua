@@ -15,6 +15,7 @@ local M = {}
 --   <leader>Ls - Show Laravel status
 --   <leader>LS - Show schema diagram
 --   <leader>LE - Export schema diagram
+--   <leader>LA - Show architecture diagram
 --
 -- Model-specific (in model files):
 --   <leader>LR - Show model relationships
@@ -72,6 +73,10 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>LE', function()
                 require('laravel.schema').show_schema_diagram(true)
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Export schema diagram' }))
+
+            vim.keymap.set('n', '<leader>LA', function()
+                require('laravel.architecture').show_architecture_diagram()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show architecture diagram' }))
         end,
     })
 
