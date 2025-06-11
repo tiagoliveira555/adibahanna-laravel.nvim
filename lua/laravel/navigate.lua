@@ -247,6 +247,10 @@ function M.show_related_views()
     local current_file = vim.fn.expand('%:p')
     local root = get_project_root()
 
+    -- Debug information
+    print('Debug: Current file:', current_file)
+    print('Debug: Project root:', root)
+
     if not root or not current_file:find(root, 1, true) then
         ui.warn('Not in a Laravel project')
         return
@@ -256,20 +260,32 @@ function M.show_related_views()
     local related_views = {}
     local context_name = nil
 
+    -- Debug information
+    print('Debug: Relative path:', relative_path)
+
     -- Determine context and find related views
     if relative_path:match('^app/Http/Controllers/') then
+        print('Debug: Detected controller file')
         -- In a controller file
         local controller_name = vim.fn.fnamemodify(current_file, ':t:r') -- filename without extension
         local base_name = controller_name:gsub('Controller$', '')
         context_name = base_name .. ' Controller'
 
+        print('Debug: Controller name:', controller_name)
+        print('Debug: Base name:', base_name)
+
         -- Find views that match the controller name
         local views = require('laravel.blade').find_views()
         local view_prefix = base_name:lower()
 
+        print('Debug: Found', #views, 'total views')
+        print('Debug: Looking for views with prefix:', view_prefix)
+
         -- Look for views with matching prefix (users.*, posts.*, etc.)
         for _, view in ipairs(views) do
+            print('Debug: Checking view:', view.name)
             if view.name:match('^' .. view_prefix .. '%.') or view.name:match('^' .. view_prefix .. '$') then
+                print('Debug: Match found (prefix):', view.name)
                 related_views[#related_views + 1] = {
                     name = view.name,
                     path = view.path,
@@ -281,6 +297,7 @@ function M.show_related_views()
         -- Also look for exact matches in subdirectories (users/index, users/show, etc.)
         for _, view in ipairs(views) do
             if view.name:match('^' .. view_prefix .. '/') then
+                print('Debug: Match found (directory):', view.name)
                 related_views[#related_views + 1] = {
                     name = view.name,
                     path = view.path,
@@ -366,6 +383,8 @@ function M.show_related_views()
             unique_views[#unique_views + 1] = view
         end
     end
+
+    print('Debug: Found', #unique_views, 'unique related views')
 
     if #unique_views == 0 then
         ui.info('No related views found for ' .. (context_name or 'current context'))
