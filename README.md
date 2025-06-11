@@ -100,6 +100,7 @@ All Laravel keymaps use the `<leader>L` prefix for better organization and to av
 - `<leader>Lc` - Go to controller
 - `<leader>Lm` - Go to model  
 - `<leader>Lv` - Go to view
+- `<leader>LV` - Show related views (context-aware)
 - `<leader>Lr` - Show routes
 - `<leader>La` - Run artisan command
 - `<leader>Lk` - Laravel make command

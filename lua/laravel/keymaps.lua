@@ -79,6 +79,10 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>Lv', function()
                 require('laravel.navigate').goto_view()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to view' }))
+
+            vim.keymap.set('n', '<leader>LV', function()
+                require('laravel.navigate').show_related_views()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show related views' }))
         end,
     })
 end
