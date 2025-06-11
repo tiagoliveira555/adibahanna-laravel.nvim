@@ -63,9 +63,46 @@ local function format_route(route, max_widths)
     end
 
     local method_str = table.concat(methods, '|')
-    local uri = route.uri or route.url or ''
-    local name = route.name or ''
-    local action = route.action or route.uses or ''
+
+    -- Safely handle potential userdata values from JSON
+    local uri = ''
+    if route.uri then
+        if type(route.uri) == 'string' then
+            uri = route.uri
+        else
+            uri = tostring(route.uri) or ''
+        end
+    elseif route.url then
+        if type(route.url) == 'string' then
+            uri = route.url
+        else
+            uri = tostring(route.url) or ''
+        end
+    end
+
+    local name = ''
+    if route.name then
+        if type(route.name) == 'string' then
+            name = route.name
+        else
+            name = tostring(route.name) or ''
+        end
+    end
+
+    local action = ''
+    if route.action then
+        if type(route.action) == 'string' then
+            action = route.action
+        else
+            action = tostring(route.action) or ''
+        end
+    elseif route.uses then
+        if type(route.uses) == 'string' then
+            action = route.uses
+        else
+            action = tostring(route.uses) or ''
+        end
+    end
 
     -- Clean up action for better display
     if type(action) == 'table' and action.uses then
@@ -122,8 +159,30 @@ local function calculate_max_widths(routes)
         end
 
         local method_str = table.concat(methods, '|')
-        local uri = route.uri or route.url or ''
-        local name = route.name or ''
+
+        -- Safely handle potential userdata values from JSON
+        local uri = ''
+        if route.uri and type(route.uri) == 'string' then
+            uri = route.uri
+        elseif route.url and type(route.url) == 'string' then
+            uri = route.url
+        end
+
+        local name = ''
+        if route.name then
+            if type(route.name) == 'string' then
+                name = route.name
+            else
+                -- Debug: log unexpected type
+                vim.notify('Unexpected route.name type: ' .. type(route.name), vim.log.levels.DEBUG)
+                name = tostring(route.name) or ''
+            end
+        end
+
+        -- Ensure all values are strings before getting length
+        method_str = tostring(method_str) or ''
+        uri = tostring(uri) or ''
+        name = tostring(name) or ''
 
         max_widths.method = math.max(max_widths.method, #method_str)
         max_widths.uri = math.max(max_widths.uri, #uri)
@@ -293,7 +352,13 @@ function M.show_filtered_routes(filter)
     get_routes(function(all_routes)
         local filtered_routes = {}
         for _, route in ipairs(all_routes) do
-            local uri = route.uri or route.url or ''
+            local uri = ''
+            if route.uri and type(route.uri) == 'string' then
+                uri = route.uri
+            elseif route.url and type(route.url) == 'string' then
+                uri = route.url
+            end
+
             if uri:lower():match(filter:lower()) then
                 table.insert(filtered_routes, route)
             end
@@ -362,17 +427,29 @@ function M.navigate_to_route_definition(route)
         if vim.fn.filereadable(route_file) == 1 then
             local lines = vim.fn.readfile(route_file)
             for i, line in ipairs(lines) do
-                if route.name and route.name ~= '' then
+                local route_name = ''
+                if route.name and type(route.name) == 'string' then
+                    route_name = route.name
+                end
+
+                local route_uri = ''
+                if route.uri and type(route.uri) == 'string' then
+                    route_uri = route.uri
+                elseif route.url and type(route.url) == 'string' then
+                    route_uri = route.url
+                end
+
+                if route_name ~= '' then
                     -- Look for named routes
-                    if line:match('->name%s*%(%s*[\'"]' .. vim.pesc(route.name) .. '[\'"]') then
+                    if line:match('->name%s*%(%s*[\'"]' .. vim.pesc(route_name) .. '[\'"]') then
                         vim.cmd('edit ' .. route_file)
                         vim.fn.cursor(i, 1)
                         vim.cmd('normal! zz')
                         return
                     end
-                elseif route.uri then
+                elseif route_uri ~= '' then
                     -- Look for URI pattern
-                    if line:match('[\'"]' .. vim.pesc(route.uri) .. '[\'"]') then
+                    if line:match('[\'"]' .. vim.pesc(route_uri) .. '[\'"]') then
                         vim.cmd('edit ' .. route_file)
                         vim.fn.cursor(i, 1)
                         vim.cmd('normal! zz')
