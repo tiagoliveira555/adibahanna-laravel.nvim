@@ -332,57 +332,195 @@ function M.show_architecture_diagram(diagram_type)
     end
 end
 
--- Generate application flow diagram
+-- Generate detailed application flow diagram
 function M.generate_flow_diagram()
     local routes = M.analyze_routes()
     local controllers = M.analyze_controllers()
+    local navigate_module = require('laravel.navigate')
+    local models_list = navigate_module.find_models()
 
     local lines = {}
     table.insert(lines, 'flowchart TD')
-    table.insert(lines, '    %% Laravel Application Flow')
+    table.insert(lines, '    %% Laravel Application Request Lifecycle')
     table.insert(lines, '')
 
-    -- Define main flow nodes
-    table.insert(lines, '    Client[("👤 Client Request")]')
-    table.insert(lines, '    Routes["🛣️ Routes"]')
-    table.insert(lines, '    Middleware["🔒 Middleware"]')
-    table.insert(lines, '    Database[("🗄️ Database")]')
-    table.insert(lines, '    Response["📤 Response"]')
+    -- Request Entry Point
+    table.insert(lines, '    Client[("👤 Client<br/>HTTP Request")]')
+    table.insert(lines, '    WebServer["🌐 Web Server<br/>(Nginx/Apache)"]')
+    table.insert(lines, '    PublicIndex["📄 public/index.php<br/>Entry Point"]')
     table.insert(lines, '')
 
-    -- Controllers
+    -- Bootstrap & Service Providers
+    table.insert(lines, '    Bootstrap["⚡ Bootstrap<br/>Application"]')
+    table.insert(lines, '    ServiceProviders["🔧 Service Providers<br/>Register & Boot"]')
+    table.insert(lines, '    Kernel["🔐 HTTP Kernel<br/>Handle Request"]')
+    table.insert(lines, '')
+
+    -- Routing & Middleware
+    table.insert(lines, '    Router["🛣️ Router<br/>Match Route"]')
+    table.insert(lines, '    GlobalMiddleware["🔒 Global Middleware<br/>(CORS, Security)"]')
+    table.insert(lines, '    RouteMiddleware["🛡️ Route Middleware<br/>(Auth, Throttle)"]')
+    table.insert(lines, '')
+
+    -- Request Processing
+    table.insert(lines, '    FormRequest["📝 Form Request<br/>Validation"]')
+    table.insert(lines, '    Authorization["🔑 Authorization<br/>Policies & Gates"]')
+    table.insert(lines, '')
+
+    -- Controllers (detailed)
     local controller_nodes = {}
+    local controller_methods = {}
     for controller_name, controller_info in pairs(controllers) do
         if #controller_info.methods > 0 then
             local node_id = 'C_' .. controller_name:gsub('[^%w]', '_')
-            table.insert(lines, '    ' .. node_id .. '["🎮 ' .. controller_name .. '"]')
+            table.insert(lines,
+                '    ' ..
+                node_id ..
+                '["🎮 ' .. controller_name .. '<br/>Methods: ' .. table.concat(controller_info.methods, ', ') .. '"]')
             controller_nodes[controller_name] = node_id
+            controller_methods[controller_name] = controller_info.methods
         end
     end
 
     table.insert(lines, '')
 
-    -- Basic flow
-    table.insert(lines, '    Client --> Routes')
-    table.insert(lines, '    Routes --> Middleware')
+    -- Services & Business Logic
+    table.insert(lines, '    Services["🔨 Services<br/>Business Logic"]')
+    table.insert(lines, '    Events["📡 Events<br/>Event System"]')
+    table.insert(lines, '    Jobs["⚙️ Jobs<br/>Queue Processing"]')
+    table.insert(lines, '')
 
-    -- Connect to controllers
+    -- Data Layer
+    table.insert(lines, '    Models["📊 Eloquent Models<br/>ORM Layer"]')
+    table.insert(lines, '    QueryBuilder["🔍 Query Builder<br/>Database Queries"]')
+    table.insert(lines, '    Database[("🗄️ Database<br/>MySQL/PostgreSQL")]')
+    table.insert(lines, '    Cache["💾 Cache<br/>(Redis/Memcached)"]')
+    table.insert(lines, '')
+
+    -- Response Generation
+    table.insert(lines, '    ViewEngine["🎨 View Engine<br/>Blade Templates"]')
+    table.insert(lines, '    APIResponse["📡 API Response<br/>JSON/XML"]')
+    table.insert(lines, '    FileResponse["📁 File Response<br/>Downloads/Uploads"]')
+    table.insert(lines, '    RedirectResponse["↩️ Redirect Response<br/>URL Redirects"]')
+    table.insert(lines, '')
+
+    -- Response Processing
+    table.insert(lines, '    ResponseMiddleware["📤 Response Middleware<br/>Transform Response"]')
+    table.insert(lines, '    FinalResponse["✅ HTTP Response<br/>Headers & Content"]')
+    table.insert(lines, '')
+
+    -- Request Flow Connections
+    table.insert(lines, '    %% Request Lifecycle Flow')
+    table.insert(lines, '    Client --> WebServer')
+    table.insert(lines, '    WebServer --> PublicIndex')
+    table.insert(lines, '    PublicIndex --> Bootstrap')
+    table.insert(lines, '    Bootstrap --> ServiceProviders')
+    table.insert(lines, '    ServiceProviders --> Kernel')
+    table.insert(lines, '    Kernel --> Router')
+    table.insert(lines, '    Router --> GlobalMiddleware')
+    table.insert(lines, '    GlobalMiddleware --> RouteMiddleware')
+    table.insert(lines, '    RouteMiddleware --> FormRequest')
+    table.insert(lines, '    FormRequest --> Authorization')
+    table.insert(lines, '')
+
+    -- Controller Connections
     local connected_controllers = {}
     for _, route in ipairs(routes) do
         local controller_node = controller_nodes[route.controller]
         if controller_node and not connected_controllers[controller_node] then
-            table.insert(lines, '    Middleware --> ' .. controller_node)
+            table.insert(lines, '    Authorization --> ' .. controller_node)
             connected_controllers[controller_node] = true
         end
     end
 
-    -- Controller to database and response
-    for _, controller_node in pairs(controller_nodes) do
-        table.insert(lines, '    ' .. controller_node .. ' --> Database')
-        table.insert(lines, '    ' .. controller_node .. ' --> Response')
+    table.insert(lines, '')
+
+    -- Controller to Services and Models
+    for controller_name, controller_node in pairs(controller_nodes) do
+        local controller_info = controllers[controller_name]
+        if controller_info then
+            table.insert(lines, '    ' .. controller_node .. ' --> Services')
+
+            -- Connect to specific models if they use them
+            if #controller_info.models > 0 then
+                table.insert(lines, '    ' .. controller_node .. ' --> Models')
+            end
+
+            -- Events and Jobs
+            table.insert(lines, '    ' .. controller_node .. ' --> Events')
+            table.insert(lines, '    ' .. controller_node .. ' --> Jobs')
+        end
     end
 
-    table.insert(lines, '    Response --> Client')
+    table.insert(lines, '')
+
+    -- Data Flow
+    table.insert(lines, '    %% Data Layer Flow')
+    table.insert(lines, '    Services --> Models')
+    table.insert(lines, '    Models --> QueryBuilder')
+    table.insert(lines, '    QueryBuilder --> Database')
+    table.insert(lines, '    Models --> Cache')
+    table.insert(lines, '    QueryBuilder --> Cache')
+    table.insert(lines, '')
+
+    -- Response Generation Flow
+    table.insert(lines, '    %% Response Generation')
+    for controller_name, controller_node in pairs(controller_nodes) do
+        local controller_info = controllers[controller_name]
+        if controller_info and #controller_info.views > 0 then
+            table.insert(lines, '    ' .. controller_node .. ' --> ViewEngine')
+        end
+        table.insert(lines, '    ' .. controller_node .. ' --> APIResponse')
+        table.insert(lines, '    ' .. controller_node .. ' --> FileResponse')
+        table.insert(lines, '    ' .. controller_node .. ' --> RedirectResponse')
+    end
+
+    table.insert(lines, '')
+
+    -- Final Response Flow
+    table.insert(lines, '    %% Final Response Flow')
+    table.insert(lines, '    ViewEngine --> ResponseMiddleware')
+    table.insert(lines, '    APIResponse --> ResponseMiddleware')
+    table.insert(lines, '    FileResponse --> ResponseMiddleware')
+    table.insert(lines, '    RedirectResponse --> ResponseMiddleware')
+    table.insert(lines, '    ResponseMiddleware --> FinalResponse')
+    table.insert(lines, '    FinalResponse --> WebServer')
+    table.insert(lines, '    WebServer --> Client')
+    table.insert(lines, '')
+
+    -- Background Processing
+    table.insert(lines, '    %% Background Processing')
+    table.insert(lines, '    Jobs --> Database')
+    table.insert(lines, '    Jobs --> Cache')
+    table.insert(lines, '    Events --> Jobs')
+    table.insert(lines, '')
+
+    -- Add detailed styling
+    table.insert(lines, '    %% Styling')
+    table.insert(lines, '    classDef entry fill:#e3f2fd,stroke:#1976d2,stroke-width:2px')
+    table.insert(lines, '    classDef routing fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px')
+    table.insert(lines, '    classDef security fill:#fff3e0,stroke:#f57f17,stroke-width:2px')
+    table.insert(lines, '    classDef controller fill:#e8f5e8,stroke:#388e3c,stroke-width:2px')
+    table.insert(lines, '    classDef service fill:#fce4ec,stroke:#c2185b,stroke-width:2px')
+    table.insert(lines, '    classDef data fill:#e0f2f1,stroke:#00796b,stroke-width:2px')
+    table.insert(lines, '    classDef response fill:#fff8e1,stroke:#fbc02d,stroke-width:2px')
+    table.insert(lines, '    classDef background fill:#f1f8e9,stroke:#689f38,stroke-width:2px')
+    table.insert(lines, '')
+
+    -- Apply styles
+    table.insert(lines, '    class Client,WebServer,PublicIndex entry')
+    table.insert(lines, '    class Bootstrap,ServiceProviders,Kernel,Router routing')
+    table.insert(lines, '    class GlobalMiddleware,RouteMiddleware,FormRequest,Authorization security')
+
+    for _, controller_node in pairs(controller_nodes) do
+        table.insert(lines, '    class ' .. controller_node .. ' controller')
+    end
+
+    table.insert(lines, '    class Services,Events service')
+    table.insert(lines, '    class Models,QueryBuilder,Database,Cache data')
+    table.insert(lines,
+        '    class ViewEngine,APIResponse,FileResponse,RedirectResponse,ResponseMiddleware,FinalResponse response')
+    table.insert(lines, '    class Jobs background')
 
     return table.concat(lines, '\n')
 end
