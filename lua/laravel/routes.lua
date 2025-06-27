@@ -479,8 +479,9 @@ function M.find_route_at_cursor()
     end
 
     -- Get current line
-    local line = vim.fn.getline('.')
-    local line_num = vim.fn.line('.')
+    local curr_line_num = vim.fn.line('.')
+    local surrounding = vim.fn.getline(math.max(1, curr_line_num - 2), curr_line_num + 2)
+    local line = table.concat(surrounding, ' ')
 
     -- Try to extract route information
     local uri = line:match('[\'"]([^\'"%s]+)[\'"]')
@@ -492,7 +493,7 @@ function M.find_route_at_cursor()
             uri = uri,
             name = name,
             method = method,
-            line = line_num,
+            line = curr_line_num,
             file = current_file,
         }
     end
@@ -529,6 +530,43 @@ function M.setup()
             })
 
             vim.keymap.set('n', 'gd', function()
+                -- First: check for Inertia or view helper call on the current line
+                local line = vim.fn.getline('.')
+                local view_name = nil
+                local patterns = {
+                    "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]", -- Static call
+                    "inertia%s*%(%s*['\"]([^'\"]+)['\"]",         -- Helper function (lower-case)
+                    "view%s*%(%s*['\"]([^'\"]+)['\"]",            -- Classic view()
+                }
+
+                for _, pat in ipairs(patterns) do
+                    view_name = line:match(pat)
+                    if view_name then break end
+                end
+
+                -- Try again with case-insensitive search
+                if not view_name or view_name == '' then
+                    local lower = line:lower()
+                    local patterns_lower = {
+                        "inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",
+                        "inertia%s*%(%s*['\"]([^'\"]+)['\"]",
+                        "view%s*%(%s*['\"]([^'\"]+)['\"]",
+                    }
+                    for _, pat in ipairs(patterns_lower) do
+                        local match_lower = lower:match(pat)
+                        if match_lower then
+                            view_name = match_lower
+                            break
+                        end
+                    end
+                end
+
+                if view_name and view_name ~= '' then
+                    require('laravel.navigate').goto_view(view_name)
+                    return
+                end
+
+                -- Otherwise fall back to route definition logic
                 local route_info = M.find_route_at_cursor()
                 if route_info and route_info.name then
                     get_routes(function(routes)
@@ -540,13 +578,14 @@ function M.setup()
                         end
                         ui.warn('Route definition not found')
                     end)
+                    return
+                end
+
+                -- Last fallback: LSP definition
+                if vim.lsp.buf.definition then
+                    vim.lsp.buf.definition()
                 else
-                    -- Fallback to LSP definition if available
-                    if vim.lsp.buf.definition then
-                        vim.lsp.buf.definition()
-                    else
-                        ui.warn('No route or LSP definition found')
-                    end
+                    ui.warn('No view, route, or LSP definition found')
                 end
             end, {
                 buffer = true,

@@ -191,8 +191,7 @@ function M.show_relationships()
         return
     end
 
-    -- Debug information
-    print('Debug: Found', #model_info.relationships, 'relationships in model', model_info.name)
+
 
     if #model_info.relationships == 0 then
         ui.info('No relationships found in this model')

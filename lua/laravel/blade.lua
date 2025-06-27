@@ -74,18 +74,15 @@ function M.find_views()
     local views = {}
     local function scan_directory(dir, prefix)
         prefix = prefix or ''
-        local items = vim.fn.readdir(dir)
+        local items = vim.fn.readdir(dir) or {}
 
         for _, item in ipairs(items) do
             local full_path = dir .. '/' .. item
             local view_name = prefix .. (prefix ~= '' and '.' or '') .. item
 
             if vim.fn.isdirectory(full_path) == 1 then
-                -- Recursively scan subdirectories
-                local subviews = scan_directory(full_path, view_name)
-                for _, subview in ipairs(subviews) do
-                    views[#views + 1] = subview
-                end
+                -- Recursively scan subdirectories (results will be added to 'views' directly)
+                scan_directory(full_path, view_name)
             elseif item:match('%.blade%.php$') then
                 -- Remove .blade.php extension for view name
                 view_name = view_name:gsub('%.blade%.php$', '')
@@ -155,12 +152,59 @@ function M.goto_view(view_name)
         local root = _G.laravel_nvim.project_root
         if not root then return end
 
-        local file_path = root .. '/resources/views/' .. view_name:gsub('%.', '/') .. '.blade.php'
-        if vim.fn.filereadable(file_path) == 1 then
-            vim.cmd('edit ' .. file_path)
-        else
-            vim.notify('View not found: ' .. view_name, vim.log.levels.ERROR)
+        -- 1. Try Blade view file (traditional Laravel views)
+        local blade_path = root .. '/resources/views/' .. view_name:gsub('%.', '/') .. '.blade.php'
+        if vim.fn.filereadable(blade_path) == 1 then
+            vim.cmd('edit ' .. blade_path)
+            return
         end
+
+        -- 2. Try Inertia page component (commonly stored in resources/js/Pages)
+        --    Support various frontend stacks (.vue, .svelte, .tsx, .jsx, .ts, .js)
+        local inertia_dirs = {
+            root .. '/resources/js/Pages/', -- common default (Laravel starter kits)
+            root .. '/resources/js/pages/', -- lowercase variant
+        }
+
+        local component_paths = {}
+        for _, dir in ipairs(inertia_dirs) do
+            component_paths[#component_paths + 1] = dir .. view_name:gsub('%.', '/')
+        end
+
+        local exts = { '.vue', '.svelte', '.tsx', '.jsx', '.ts', '.js' }
+        for _, stub in ipairs(component_paths) do
+            for _, ext in ipairs(exts) do
+                local candidate = stub .. ext
+                if vim.fn.filereadable(candidate) == 1 then
+                    vim.cmd('edit ' .. candidate)
+                    return
+                end
+            end
+        end
+
+        -- 3. As a fallback, try capitalized path variants (Inertia + React conventions)
+        --    E.g., "dashboard" -> "Dashboard.vue" or nested paths "admin/dashboard" -> "Admin/Dashboard.vue"
+        local function capitalize_path(path)
+            local parts = {}
+            for part in path:gmatch('[^/]+') do
+                parts[#parts + 1] = part:gsub('^%l', string.upper)
+            end
+            return table.concat(parts, '/')
+        end
+
+        for _, inertia_base in ipairs(inertia_dirs) do
+            local capitalized_stub = inertia_base .. capitalize_path(view_name:gsub('%.', '/'))
+            for _, ext in ipairs(exts) do
+                local candidate = capitalized_stub .. ext
+                if vim.fn.filereadable(candidate) == 1 then
+                    vim.cmd('edit ' .. candidate)
+                    return
+                end
+            end
+        end
+
+        -- No view found
+        vim.notify('View not found: ' .. view_name, vim.log.levels.ERROR)
     end
 end
 

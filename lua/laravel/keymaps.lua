@@ -33,6 +33,33 @@ local function setup_laravel_keymaps()
             local bufnr = vim.api.nvim_get_current_buf()
             local bufopts = { noremap = true, silent = true, buffer = bufnr }
 
+            -- Enhanced gd mapping for Laravel string navigation
+            vim.keymap.set('n', 'gd', function()
+                -- Check if we're in a Laravel project
+                if not (_G.laravel_nvim and _G.laravel_nvim.project_root) then
+                    if vim.lsp.buf.definition then
+                        vim.lsp.buf.definition()
+                    else
+                        vim.cmd('normal! gd')
+                    end
+                    return
+                end
+
+                -- Try Laravel string navigation first
+                local navigate = require('laravel.navigate')
+                local success, result = pcall(navigate.goto_laravel_string)
+
+                if not success then
+                    -- If Laravel navigation fails, fall back to LSP definition
+                    if vim.lsp.buf.definition then
+                        vim.lsp.buf.definition()
+                    else
+                        -- Final fallback to built-in definition
+                        vim.cmd('normal! gd')
+                    end
+                end
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to definition (Laravel strings or LSP)' }))
+
             -- Laravel-specific navigation with <leader>L prefix
             vim.keymap.set('n', '<leader>Lc', function()
                 require('laravel.navigate').goto_controller()
@@ -77,6 +104,29 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>LA', function()
                 require('laravel.architecture').show_architecture_diagram()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show architecture diagram' }))
+
+            -- Manual completion trigger for testing
+            vim.keymap.set('i', '<C-x><C-l>', function()
+                local line = vim.fn.getline('.')
+                local col = vim.fn.col('.') - 1
+
+                local completion_source = require('laravel.completion_source')
+                local context = completion_source.get_completion_context and
+                    completion_source.get_completion_context(line, col)
+
+                if context then
+                    local completions = require('laravel.completions')
+                    local items = completions.get_completions(context.func, context.partial)
+
+                    if #items > 0 then
+                        vim.fn.complete(col - #context.partial + 1, items)
+                    else
+                        vim.notify('No Laravel completions found', vim.log.levels.WARN)
+                    end
+                else
+                    vim.notify('Not in a Laravel helper function', vim.log.levels.WARN)
+                end
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Manual completion trigger' }))
         end,
     })
 
@@ -87,6 +137,23 @@ local function setup_laravel_keymaps()
             local bufnr = vim.api.nvim_get_current_buf()
             local bufopts = { noremap = true, silent = true, buffer = bufnr }
 
+            -- Enhanced gd mapping for Blade files too
+            vim.keymap.set('n', 'gd', function()
+                -- Try Laravel string navigation first
+                local navigate = require('laravel.navigate')
+                local success, result = pcall(navigate.goto_laravel_string)
+
+                if not success then
+                    -- If Laravel navigation fails, fall back to LSP definition
+                    if vim.lsp.buf.definition then
+                        vim.lsp.buf.definition()
+                    else
+                        -- Final fallback to built-in definition
+                        vim.cmd('normal! gd')
+                    end
+                end
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to definition (Laravel strings or LSP)' }))
+
             vim.keymap.set('n', '<leader>Lc', function()
                 require('laravel.navigate').goto_controller()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to controller' }))
@@ -94,6 +161,37 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>Lv', function()
                 require('laravel.navigate').goto_view()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to view' }))
+        end,
+    })
+
+    -- Setup keymaps for JavaScript/TypeScript files (for Inertia)
+    vim.api.nvim_create_autocmd('FileType', {
+        pattern = { 'javascript', 'typescript', 'javascriptreact', 'typescriptreact' },
+        callback = function()
+            local bufnr = vim.api.nvim_get_current_buf()
+            local bufopts = { noremap = true, silent = true, buffer = bufnr }
+
+            -- Enhanced gd mapping for JS/TS files in Laravel projects
+            vim.keymap.set('n', 'gd', function()
+                -- Check if we're in a Laravel project
+                if _G.laravel_nvim and _G.laravel_nvim.project_root then
+                    -- Try Laravel string navigation first
+                    local navigate = require('laravel.navigate')
+                    local success, result = pcall(navigate.goto_laravel_string)
+
+                    if success then
+                        return
+                    end
+                end
+
+                -- Fall back to LSP definition for JS/TS
+                if vim.lsp.buf.definition then
+                    vim.lsp.buf.definition()
+                else
+                    -- Final fallback to built-in definition
+                    vim.cmd('normal! gd')
+                end
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to definition (Laravel strings or LSP)' }))
         end,
     })
 end

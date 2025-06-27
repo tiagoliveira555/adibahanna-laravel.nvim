@@ -59,6 +59,8 @@ local function initialize_laravel()
     require('laravel.models').setup()
     require('laravel.migrations').setup()
     require('laravel.keymaps').setup() -- Laravel-specific keymaps
+    require('laravel.completions').setup()
+    require('laravel.blink_source').setup()
 
     if is_laravel then
         vim.notify("Laravel.nvim: Laravel project detected at " .. root, vim.log.levels.INFO)
@@ -145,7 +147,7 @@ local function setup_commands()
         require('laravel.architecture').show_architecture_diagram()
     end, { desc = 'Show Laravel application architecture diagram' })
 
-    -- Debug command to check Laravel status
+    -- Laravel status command
     vim.api.nvim_create_user_command('LaravelStatus', function()
         local is_laravel = _G.laravel_nvim.is_laravel_project
         local root = _G.laravel_nvim.project_root
@@ -166,6 +168,69 @@ local function setup_commands()
             end
         end
     end, { desc = 'Check Laravel.nvim status' })
+
+    -- Completion management commands
+    vim.api.nvim_create_user_command('LaravelCompletions', function(opts)
+        local completions = require('laravel.completions')
+        local func_name = opts.args or 'route'
+
+        local items = completions.get_completions(func_name)
+        if #items == 0 then
+            vim.notify('No ' .. func_name .. ' completions found', vim.log.levels.WARN)
+            return
+        end
+
+        vim.notify('Found ' .. #items .. ' ' .. func_name .. ' completions:', vim.log.levels.INFO)
+        for i, item in ipairs(items) do
+            if i <= 10 then -- Show first 10
+                vim.notify('  ' .. item, vim.log.levels.INFO)
+            elseif i == 11 then
+                vim.notify('  ... and ' .. (#items - 10) .. ' more', vim.log.levels.INFO)
+                break
+            end
+        end
+    end, {
+        nargs = '?',
+        complete = function()
+            return { 'route', 'view', 'config', '__', 'trans' }
+        end,
+        desc = 'Show Laravel completions for a function'
+    })
+
+    vim.api.nvim_create_user_command('LaravelClearCache', function()
+        require('laravel.completions').clear_cache()
+        vim.notify('Laravel completion cache cleared', vim.log.levels.INFO)
+    end, { desc = 'Clear Laravel completion cache' })
+
+    -- Test completion system
+    vim.api.nvim_create_user_command('LaravelTestCompletions', function()
+        local completions = require('laravel.completions')
+
+        vim.notify('Testing Laravel completions...', vim.log.levels.INFO)
+
+        -- Test route completions
+        local routes = completions.get_completions('route')
+        vim.notify('Routes found: ' .. #routes, vim.log.levels.INFO)
+
+        -- Test view completions
+        local views = completions.get_completions('view')
+        vim.notify('Views found: ' .. #views, vim.log.levels.INFO)
+
+        -- Test config completions
+        local configs = completions.get_completions('config')
+        vim.notify('Config keys found: ' .. #configs, vim.log.levels.INFO)
+
+        -- Show first few of each
+        if #routes > 0 then
+            vim.notify('First route: ' .. routes[1], vim.log.levels.INFO)
+        end
+        if #views > 0 then
+            vim.notify('First view: ' .. views[1], vim.log.levels.INFO)
+        end
+        if #configs > 0 then
+            vim.notify('First config: ' .. configs[1], vim.log.levels.INFO)
+        end
+    end, { desc = 'Test Laravel completion system' })
 end
 
 -- Always setup commands first
