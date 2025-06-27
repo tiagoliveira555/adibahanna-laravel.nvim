@@ -231,6 +231,29 @@ local function setup_commands()
             vim.notify('First config: ' .. configs[1], vim.log.levels.INFO)
         end
     end, { desc = 'Test Laravel completion system' })
+
+    -- Debug navigation command
+    vim.api.nvim_create_user_command('LaravelDebugNavigation', function()
+        local line = vim.fn.getline('.')
+        local col = vim.fn.col('.')
+        local word = vim.fn.expand('<cword>')
+
+        vim.notify('Debug Navigation:', vim.log.levels.INFO)
+        vim.notify('Line: ' .. line, vim.log.levels.INFO)
+        vim.notify('Word: ' .. word, vim.log.levels.INFO)
+        vim.notify('Column: ' .. col, vim.log.levels.INFO)
+
+        -- Test Laravel context detection
+        local navigate = require('laravel.navigate')
+        local is_laravel_context = navigate.is_laravel_navigation_context()
+        vim.notify('Laravel context detected: ' .. tostring(is_laravel_context), vim.log.levels.INFO)
+
+        if is_laravel_context then
+            -- Test Laravel string navigation
+            local success = navigate.goto_laravel_string()
+            vim.notify('Laravel navigation success: ' .. tostring(success), vim.log.levels.INFO)
+        end
+    end, { desc = 'Debug Laravel navigation detection' })
 end
 
 -- Always setup commands first

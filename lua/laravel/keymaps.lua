@@ -37,6 +37,7 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', 'gd', function()
                 -- Check if we're in a Laravel project
                 if not (_G.laravel_nvim and _G.laravel_nvim.project_root) then
+                    -- Not in Laravel project, use default LSP
                     if vim.lsp.buf.definition then
                         vim.lsp.buf.definition()
                     else
@@ -45,18 +46,22 @@ local function setup_laravel_keymaps()
                     return
                 end
 
-                -- Try Laravel string navigation first
+                -- Check if this looks like a Laravel-specific pattern first
                 local navigate = require('laravel.navigate')
-                local success, result = pcall(navigate.goto_laravel_string)
-
-                if not success then
-                    -- If Laravel navigation fails, fall back to LSP definition
-                    if vim.lsp.buf.definition then
-                        vim.lsp.buf.definition()
-                    else
-                        -- Final fallback to built-in definition
-                        vim.cmd('normal! gd')
+                if navigate.is_laravel_navigation_context() then
+                    -- This is a Laravel-specific context, try Laravel navigation
+                    local success = pcall(navigate.goto_laravel_string)
+                    if success then
+                        return -- Laravel navigation succeeded
                     end
+                end
+
+                -- Default to LSP definition for everything else
+                if vim.lsp.buf.definition then
+                    vim.lsp.buf.definition()
+                else
+                    -- Final fallback to built-in definition
+                    vim.cmd('normal! gd')
                 end
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to definition (Laravel strings or LSP)' }))
 
@@ -139,18 +144,22 @@ local function setup_laravel_keymaps()
 
             -- Enhanced gd mapping for Blade files too
             vim.keymap.set('n', 'gd', function()
-                -- Try Laravel string navigation first
+                -- Check if this looks like a Laravel-specific pattern first
                 local navigate = require('laravel.navigate')
-                local success, result = pcall(navigate.goto_laravel_string)
-
-                if not success then
-                    -- If Laravel navigation fails, fall back to LSP definition
-                    if vim.lsp.buf.definition then
-                        vim.lsp.buf.definition()
-                    else
-                        -- Final fallback to built-in definition
-                        vim.cmd('normal! gd')
+                if navigate.is_laravel_navigation_context() then
+                    -- This is a Laravel-specific context, try Laravel navigation
+                    local success = pcall(navigate.goto_laravel_string)
+                    if success then
+                        return -- Laravel navigation succeeded
                     end
+                end
+
+                -- Default to LSP definition for everything else
+                if vim.lsp.buf.definition then
+                    vim.lsp.buf.definition()
+                else
+                    -- Final fallback to built-in definition
+                    vim.cmd('normal! gd')
                 end
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to definition (Laravel strings or LSP)' }))
 
@@ -173,18 +182,19 @@ local function setup_laravel_keymaps()
 
             -- Enhanced gd mapping for JS/TS files in Laravel projects
             vim.keymap.set('n', 'gd', function()
-                -- Check if we're in a Laravel project
+                -- Check if we're in a Laravel project and this looks like a Laravel pattern
                 if _G.laravel_nvim and _G.laravel_nvim.project_root then
-                    -- Try Laravel string navigation first
                     local navigate = require('laravel.navigate')
-                    local success, result = pcall(navigate.goto_laravel_string)
-
-                    if success then
-                        return
+                    if navigate.is_laravel_navigation_context() then
+                        -- This is a Laravel-specific context, try Laravel navigation
+                        local success = pcall(navigate.goto_laravel_string)
+                        if success then
+                            return -- Laravel navigation succeeded
+                        end
                     end
                 end
 
-                -- Fall back to LSP definition for JS/TS
+                -- Default to LSP definition for JS/TS
                 if vim.lsp.buf.definition then
                     vim.lsp.buf.definition()
                 else

@@ -7,10 +7,24 @@ local completions = require('laravel.completions')
 local function get_completion_context(line, col)
     -- First, try to extract complete Laravel function calls from the entire line
     local function extract_laravel_call(line, func_name)
+        -- Escape special characters in function name for pattern matching
+        local escaped_func = func_name:gsub('([%(%)%[%]%*%+%-%?%^%$%%::])', '%%%1')
+
         -- Pattern to match: func_name('string') or func_name("string")
-        local pattern = func_name .. "%s*%(%s*['\"]([^'\"]*)['\"]"
-        local match = line:match(pattern)
-        return match
+        -- More robust pattern that handles various whitespace and characters
+        local patterns = {
+            escaped_func .. "%s*%(%s*['\"]([^'\"]+)['\"]",      -- Basic pattern
+            escaped_func .. "%s*%(%s*['\"]([^'\"]*)['\"]%s*,",  -- With comma after
+            escaped_func .. "%s*%(%s*['\"]([^'\"]*)['\"]%s*%)", -- With closing paren
+        }
+
+        for _, pattern in ipairs(patterns) do
+            local match = line:match(pattern)
+            if match then
+                return match
+            end
+        end
+        return nil
     end
 
     local laravel_functions = {
@@ -43,16 +57,41 @@ local function get_completion_context(line, col)
 
     -- Fallback: use the old method for partial matches during typing
     local before_cursor = line:sub(1, col)
+
     local patterns = {
-        { pattern = "route%s*%(%s*['\"]([^'\"]*)",           func = 'route' },
-        { pattern = "view%s*%(%s*['\"]([^'\"]*)",            func = 'view' },
-        { pattern = "config%s*%(%s*['\"]([^'\"]*)",          func = 'config' },
-        { pattern = "__%s*%(%s*['\"]([^'\"]*)",              func = '__' },
-        { pattern = "trans%s*%(%s*['\"]([^'\"]*)",           func = 'trans' },
-        { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]*)", func = 'view' },
-        { pattern = "inertia%s*%(%s*['\"]([^'\"]*)",         func = 'view' },
+        { pattern = "route%s*%(%s*['\"]([^'\"]*)",                 func = 'route' },
+        { pattern = "view%s*%(%s*['\"]([^'\"]*)",                  func = 'view' },
+        { pattern = "config%s*%(%s*['\"]([^'\"]*)",                func = 'config' },
+        { pattern = "__%s*%(%s*['\"]([^'\"]*)",                    func = '__' },
+        { pattern = "trans%s*%(%s*['\"]([^'\"]*)",                 func = 'trans' },
+        { pattern = "Inertia%s*::%s*render%s*%(%s*['\"]([^'\"]*)", func = 'view' },
+        { pattern = "inertia%s*%(%s*['\"]([^'\"]*)",               func = 'view' },
     }
 
+    -- For navigation, prioritize full line patterns to get complete strings
+    -- regardless of cursor position
+    local full_line_patterns = {
+        { pattern = "route%s*%(%s*['\"]([^'\"]+)['\"]",                 func = 'route' },
+        { pattern = "view%s*%(%s*['\"]([^'\"]+)['\"]",                  func = 'view' },
+        { pattern = "config%s*%(%s*['\"]([^'\"]+)['\"]",                func = 'config' },
+        { pattern = "__%s*%(%s*['\"]([^'\"]+)['\"]",                    func = '__' },
+        { pattern = "trans%s*%(%s*['\"]([^'\"]+)['\"]",                 func = 'trans' },
+        { pattern = "Inertia%s*::%s*render%s*%(%s*['\"]([^'\"]+)['\"]", func = 'view' },
+        { pattern = "inertia%s*%(%s*['\"]([^'\"]+)['\"]",               func = 'view' },
+    }
+
+    for _, p in ipairs(full_line_patterns) do
+        local match = line:match(p.pattern)
+        if match then
+            return {
+                func = p.func,
+                partial = match,
+                trigger_char = line:sub(col, col) -- Character at cursor
+            }
+        end
+    end
+
+    -- Fallback to before_cursor approach for completion scenarios
     for _, p in ipairs(patterns) do
         local match = before_cursor:match(p.pattern)
         if match then

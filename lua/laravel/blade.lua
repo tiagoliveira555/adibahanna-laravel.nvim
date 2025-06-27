@@ -203,9 +203,202 @@ function M.goto_view(view_name)
             end
         end
 
-        -- No view found
-        vim.notify('View not found: ' .. view_name, vim.log.levels.ERROR)
+        -- No view found - prompt user to create it
+        M.prompt_create_view(view_name)
     end
+end
+
+-- Prompt user to create a missing view
+function M.prompt_create_view(view_name)
+    local root = _G.laravel_nvim.project_root
+    if not root then return end
+
+    -- Determine the most likely file path and type
+    local suggested_paths = M.get_suggested_view_paths(view_name)
+
+    if #suggested_paths == 0 then
+        vim.notify('Could not determine where to create view: ' .. view_name, vim.log.levels.ERROR)
+        return
+    end
+
+    -- If only one suggestion, ask directly
+    if #suggested_paths == 1 then
+        local path_info = suggested_paths[1]
+        vim.ui.input({
+            prompt = string.format('Create %s view "%s"? (y/N): ', path_info.type, path_info.display_path),
+            default = 'n'
+        }, function(input)
+            if input and (input:lower() == 'y' or input:lower() == 'yes') then
+                M.create_view(path_info.full_path, path_info.type, view_name)
+            end
+        end)
+    else
+        -- Multiple suggestions - let user choose
+        local items = {}
+        for _, path_info in ipairs(suggested_paths) do
+            items[#items + 1] = string.format('%s (%s)', path_info.display_path, path_info.type)
+        end
+
+        require('laravel.ui').select(items, {
+            prompt = 'Create view "' .. view_name .. '" as:',
+            kind = 'create_view',
+        }, function(choice)
+            if choice then
+                for i, item in ipairs(items) do
+                    if item == choice then
+                        local path_info = suggested_paths[i]
+                        M.create_view(path_info.full_path, path_info.type, view_name)
+                        break
+                    end
+                end
+            end
+        end)
+    end
+end
+
+-- Get suggested paths for creating a view
+function M.get_suggested_view_paths(view_name)
+    local root = _G.laravel_nvim.project_root
+    if not root then return {} end
+
+    local suggestions = {}
+
+    -- 1. Blade template
+    local blade_path = root .. '/resources/views/' .. view_name:gsub('%.', '/') .. '.blade.php'
+    local blade_display = 'resources/views/' .. view_name:gsub('%.', '/') .. '.blade.php'
+    suggestions[#suggestions + 1] = {
+        full_path = blade_path,
+        display_path = blade_display,
+        type = 'Blade'
+    }
+
+    -- 2. Inertia components - detect which frontend stack is likely being used
+    local frontend_info = M.detect_frontend_stack(root)
+    if frontend_info then
+        local inertia_path = frontend_info.base_dir .. view_name:gsub('%.', '/') .. frontend_info.extension
+        local inertia_display = inertia_path:gsub(root .. '/', '')
+        suggestions[#suggestions + 1] = {
+            full_path = inertia_path,
+            display_path = inertia_display,
+            type = frontend_info.type
+        }
+
+        -- Also suggest capitalized version for React/Vue conventions
+        local function capitalize_path(path)
+            local parts = {}
+            for part in path:gmatch('[^/]+') do
+                parts[#parts + 1] = part:gsub('^%l', string.upper)
+            end
+            return table.concat(parts, '/')
+        end
+
+        local capitalized_path = frontend_info.base_dir ..
+            capitalize_path(view_name:gsub('%.', '/')) .. frontend_info.extension
+        local capitalized_display = capitalized_path:gsub(root .. '/', '')
+        suggestions[#suggestions + 1] = {
+            full_path = capitalized_path,
+            display_path = capitalized_display,
+            type = frontend_info.type .. ' (Capitalized)'
+        }
+    end
+
+    return suggestions
+end
+
+-- Detect the frontend stack being used
+function M.detect_frontend_stack(root)
+    -- Safely check if vim functions are available
+    if not vim or not vim.fn then
+        return nil
+    end
+
+    -- Check for common frontend directories and package.json
+    local package_json = root .. '/package.json'
+    if vim.fn.filereadable(package_json) == 1 then
+        local content = vim.fn.readfile(package_json)
+        local package_str = table.concat(content, '\n')
+
+        -- Check for React/TypeScript
+        if package_str:match('"react"') or package_str:match('"@types/react"') then
+            if package_str:match('"typescript"') or vim.fn.filereadable(root .. '/tsconfig.json') == 1 then
+                return {
+                    base_dir = root .. '/resources/js/Pages/',
+                    extension = '.tsx',
+                    type = 'React TypeScript'
+                }
+            else
+                return {
+                    base_dir = root .. '/resources/js/Pages/',
+                    extension = '.jsx',
+                    type = 'React'
+                }
+            end
+        end
+
+        -- Check for Vue
+        if package_str:match('"vue"') then
+            return {
+                base_dir = root .. '/resources/js/Pages/',
+                extension = '.vue',
+                type = 'Vue'
+            }
+        end
+
+        -- Check for Svelte
+        if package_str:match('"svelte"') then
+            return {
+                base_dir = root .. '/resources/js/Pages/',
+                extension = '.svelte',
+                type = 'Svelte'
+            }
+        end
+    end
+
+    -- Check if Pages directory exists and what files are in it
+    local pages_dir = root .. '/resources/js/Pages'
+    if vim.fn.isdirectory(pages_dir) == 1 then
+        local files = vim.fn.readdir(pages_dir) or {}
+        for _, file in ipairs(files) do
+            if file:match('%.tsx$') then
+                return { base_dir = pages_dir .. '/', extension = '.tsx', type = 'React TypeScript' }
+            elseif file:match('%.jsx$') then
+                return { base_dir = pages_dir .. '/', extension = '.jsx', type = 'React' }
+            elseif file:match('%.vue$') then
+                return { base_dir = pages_dir .. '/', extension = '.vue', type = 'Vue' }
+            elseif file:match('%.svelte$') then
+                return { base_dir = pages_dir .. '/', extension = '.svelte', type = 'Svelte' }
+            end
+        end
+    end
+
+    return nil
+end
+
+-- Create a view file
+function M.create_view(file_path, view_type, view_name)
+    -- Ensure directory exists
+    local dir = vim.fn.fnamemodify(file_path, ':h')
+    if vim.fn.isdirectory(dir) == 0 then
+        vim.fn.mkdir(dir, 'p')
+    end
+
+    -- Generate appropriate template content
+    local content = M.generate_view_template(view_type, view_name)
+
+    -- Write file
+    vim.fn.writefile(content, file_path)
+
+    -- Open the file
+    vim.cmd('edit ' .. file_path)
+
+    vim.notify('Created ' .. view_type .. ' view: ' .. file_path:gsub(_G.laravel_nvim.project_root .. '/', ''),
+        vim.log.levels.INFO)
+end
+
+-- Generate template content based on view type
+function M.generate_view_template(view_type, view_name)
+    -- Return empty content - user prefers to start with blank files
+    return {}
 end
 
 -- Setup function

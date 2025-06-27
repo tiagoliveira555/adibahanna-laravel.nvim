@@ -322,27 +322,120 @@ function M.goto_route_file(route_name)
     end
 end
 
+-- Check if current context is Laravel-specific and should use Laravel navigation
+function M.is_laravel_navigation_context()
+    local line = vim.fn.getline('.')
+    local word = vim.fn.expand('<cword>')
+
+
+
+    -- Check for Laravel helper functions
+    local laravel_patterns = {
+        -- Navigation helpers
+        'route%s*%(',
+        'view%s*%(',
+        'config%s*%(',
+        '__%s*%(',
+        'trans%s*%(',
+        'Inertia%s*::%s*render%s*%(',
+        'inertia%s*%(',
+
+        -- URL helpers
+        'action%s*%(',
+        'asset%s*%(',
+        'secure_asset%s*%(',
+        'secure_url%s*%(',
+        'to_route%s*%(',
+        'url%s*%(',
+
+        -- Path helpers
+        'app_path%s*%(',
+        'base_path%s*%(',
+        'config_path%s*%(',
+        'database_path%s*%(',
+        'lang_path%s*%(',
+        'public_path%s*%(',
+        'resource_path%s*%(',
+        'storage_path%s*%(',
+
+        -- Other common helpers that might reference files
+        'mix%s*%(',
+        'policy%s*%(',
+    }
+
+    for _, pattern in ipairs(laravel_patterns) do
+        if line:match(pattern) then
+            return true
+        end
+    end
+
+
+
+    -- Check if we're in a quoted string that looks like a Laravel path
+    local col = vim.fn.col('.')
+    local before_cursor = line:sub(1, col - 1)
+    local after_cursor = line:sub(col)
+
+    -- Find if we're inside quotes
+    local quote_start = before_cursor:find("['\"][^'\"]*$")
+    local quote_end = after_cursor:find("['\"]")
+
+    if quote_start and quote_end then
+        local full_string = before_cursor:sub(quote_start + 1) .. after_cursor:sub(1, quote_end - 1)
+
+
+        -- Check if the string looks like a Laravel pattern
+        if full_string:match('^[a-z]+%.[a-z]+') or -- route names like 'user.show'
+            full_string:match('/') or              -- view paths like 'users/show'
+            full_string:match('%.') then           -- config keys like 'app.name'
+            -- Make sure we're in a Laravel function context
+            for _, pattern in ipairs(laravel_patterns) do
+                if line:match(pattern) then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 -- Enhanced Laravel string navigation - detects context and navigates to appropriate file
 function M.goto_laravel_string()
     local line = vim.fn.getline('.')
     local col = vim.fn.col('.')
 
+    local context = nil
+
     -- Get the completion context to understand what Laravel function we're in
     local completion_source = require('laravel.completion_source')
-    local context = completion_source.get_completion_context and
+    context = completion_source.get_completion_context and
         completion_source.get_completion_context(line, col - 1)
 
     if not context then
         -- Fallback: try to detect Laravel patterns manually with full string extraction
-        -- Better pattern matching that captures complete strings
         local function extract_laravel_call(line, func_name)
+            -- Escape special characters in function name for pattern matching
+            local escaped_func = func_name:gsub('([%(%)%[%]%*%+%-%?%^%$%%::])', '%%%1')
             -- Pattern to match: func_name('string') or func_name("string")
-            local pattern = func_name .. "%s*%(%s*['\"]([^'\"]*)['\"]"
-            local match = line:match(pattern)
-            return match
+            -- More robust pattern that handles various whitespace and characters
+            local patterns = {
+                escaped_func .. "%s*%(%s*['\"]([^'\"]+)['\"]",      -- Basic pattern
+                escaped_func .. "%s*%(%s*['\"]([^'\"]*)['\"]%s*,",  -- With comma after
+                escaped_func .. "%s*%(%s*['\"]([^'\"]*)['\"]%s*%)", -- With closing paren
+            }
+
+            for _, pattern in ipairs(patterns) do
+                local match = line:match(pattern)
+                if match then
+                    return match
+                end
+            end
+            return nil
         end
 
         local laravel_functions = {
+            -- Navigation helpers
             { name = 'route',           type = 'route' },
             { name = 'view',            type = 'view' },
             { name = 'Inertia::render', type = 'view' },
@@ -350,6 +443,15 @@ function M.goto_laravel_string()
             { name = 'config',          type = 'config' },
             { name = '__',              type = 'trans' },
             { name = 'trans',           type = 'trans' },
+
+            -- URL helpers that reference routes
+            { name = 'action',          type = 'route' },
+            { name = 'to_route',        type = 'route' },
+
+            -- Asset helpers
+            { name = 'asset',           type = 'asset' },
+            { name = 'secure_asset',    type = 'asset' },
+            { name = 'mix',             type = 'asset' },
         }
 
         for _, func in ipairs(laravel_functions) do
@@ -366,25 +468,51 @@ function M.goto_laravel_string()
         local before_cursor = line:sub(1, col - 1)
         local after_cursor = line:sub(col)
 
-        -- Find the quoted string we're in
-        local quote_start = before_cursor:find("['\"][^'\"]*$")
-        local quote_end = after_cursor:find("['\"]")
+        -- Find the quoted string we're in - more robust approach
+        local quote_char = nil
+        local quote_start_pos = nil
 
-        if quote_start and quote_end then
-            local full_string = before_cursor:sub(quote_start + 1) .. after_cursor:sub(1, quote_end - 1)
+        -- Look for the opening quote
+        for i = col - 1, 1, -1 do
+            local char = line:sub(i, i)
+            if char == '"' or char == "'" then
+                quote_char = char
+                quote_start_pos = i
+                break
+            end
+        end
 
-            -- Try to guess the type based on string content
-            if full_string:match('^[a-z]+%.[a-z]+') then
-                context = { func = 'route', partial = full_string }
-            elseif full_string:match('/') or full_string:match('%.') then
-                context = { func = 'view', partial = full_string }
+        if quote_char and quote_start_pos then
+            -- Find the closing quote
+            local quote_end_pos = nil
+            for i = col, #line do
+                local char = line:sub(i, i)
+                if char == quote_char then
+                    quote_end_pos = i
+                    break
+                end
+            end
+
+            if quote_end_pos then
+                local full_string = line:sub(quote_start_pos + 1, quote_end_pos - 1)
+
+                -- Try to guess the type based on string content and surrounding context
+                if line:match('route%s*%(') and full_string:match('^[a-z]+%.[a-z]+') then
+                    context = { func = 'route', partial = full_string }
+                elseif (line:match('view%s*%(') or line:match('Inertia%s*::%s*render%s*%(')) and (full_string:match('/') or full_string:match('%.')) then
+                    context = { func = 'view', partial = full_string }
+                elseif line:match('config%s*%(') and full_string:match('%.') then
+                    context = { func = 'config', partial = full_string }
+                elseif (line:match('__%s*%(') or line:match('trans%s*%(')) then
+                    context = { func = 'trans', partial = full_string }
+                end
             end
         end
     end
 
     if not context then
-        ui.warn('Not in a Laravel helper function or string')
-        return
+        -- This should rarely happen since we pre-check with is_laravel_navigation_context
+        return false
     end
 
     -- Navigate based on the detected context
@@ -396,9 +524,13 @@ function M.goto_laravel_string()
         M.goto_config(context.partial)
     elseif context.func == 'trans' or context.func == '__' then
         M.goto_translation(context.partial)
+    elseif context.func == 'asset' then
+        M.goto_asset(context.partial)
     else
-        ui.warn('Unknown Laravel function type: ' .. context.func)
+        return false
     end
+
+    return true
 end
 
 -- Navigate to route definition by name
@@ -534,6 +666,127 @@ function M.goto_translation(trans_key)
     end
 
     ui.warn('Translation file not found: ' .. trans_file .. '.php')
+end
+
+-- Navigate to asset file
+function M.goto_asset(asset_path)
+    if not asset_path or asset_path == '' then
+        ui.warn('No asset path provided')
+        return
+    end
+
+    local root = get_project_root()
+    if not root then
+        ui.error('Not in a Laravel project')
+        return
+    end
+
+    -- Try different asset locations
+    local asset_locations = {
+        root .. '/public/' .. asset_path,
+        root .. '/resources/js/' .. asset_path,
+        root .. '/resources/css/' .. asset_path,
+        root .. '/resources/sass/' .. asset_path,
+        root .. '/resources/assets/' .. asset_path,
+    }
+
+    for _, asset_file in ipairs(asset_locations) do
+        if vim.fn.filereadable(asset_file) == 1 then
+            vim.cmd('edit ' .. asset_file)
+            ui.info('Found asset: ' .. asset_path)
+            return
+        end
+    end
+
+    ui.warn('Asset file not found: ' .. asset_path)
+end
+
+-- Navigate to Laravel global function documentation or definition
+function M.goto_laravel_global(global_func)
+    if not global_func or global_func == '' then
+        ui.warn('No global function provided')
+        return
+    end
+
+    -- Map of Laravel global functions to their documentation or relevant files
+    local global_mappings = {
+        auth = { type = 'provider', path = '/config/auth.php', desc = 'Authentication configuration' },
+        request = { type = 'docs', desc = 'Request helper - provides access to current HTTP request' },
+        session = { type = 'provider', path = '/config/session.php', desc = 'Session configuration' },
+        cache = { type = 'provider', path = '/config/cache.php', desc = 'Cache configuration' },
+        cookie = { type = 'provider', path = '/config/session.php', desc = 'Cookie configuration in session config' },
+        response = { type = 'docs', desc = 'Response helper - creates HTTP responses' },
+        redirect = { type = 'docs', desc = 'Redirect helper - creates redirect responses' },
+        back = { type = 'docs', desc = 'Back helper - redirects to previous page' },
+        old = { type = 'docs', desc = 'Old input helper - retrieves old form input' },
+        asset = { type = 'docs', desc = 'Asset helper - generates URLs for assets' },
+        url = { type = 'docs', desc = 'URL helper - generates URLs' },
+        secure_url = { type = 'docs', desc = 'Secure URL helper - generates HTTPS URLs' },
+        action = { type = 'docs', desc = 'Action helper - generates URLs for controller actions' },
+        mix = { type = 'file', path = '/webpack.mix.js', desc = 'Laravel Mix configuration' },
+        app = { type = 'provider', path = '/config/app.php', desc = 'Application configuration' },
+        env = { type = 'file', path = '/.env', desc = 'Environment configuration' },
+        config = { type = 'provider', path = '/config', desc = 'Configuration files' },
+        dd = { type = 'docs', desc = 'Dump and die helper - for debugging' },
+        dump = { type = 'docs', desc = 'Dump helper - for debugging' },
+        logger = { type = 'provider', path = '/config/logging.php', desc = 'Logging configuration' },
+        validator = { type = 'provider', path = '/config/validation.php', desc = 'Validation configuration' },
+        abort = { type = 'docs', desc = 'Abort helper - throws HTTP exceptions' },
+    }
+
+    local mapping = global_mappings[global_func]
+    if not mapping then
+        ui.info('Laravel global function: ' .. global_func .. ' - Check Laravel documentation for details')
+        return
+    end
+
+    local root = get_project_root()
+    if not root then
+        ui.error('Not in a Laravel project')
+        return
+    end
+
+    if mapping.type == 'file' or mapping.type == 'provider' then
+        local file_path = root .. mapping.path
+
+        if mapping.type == 'provider' and mapping.path == '/config' then
+            -- Open config directory
+            vim.cmd('edit ' .. file_path)
+        elseif vim.fn.filereadable(file_path) == 1 then
+            vim.cmd('edit ' .. file_path)
+            ui.info('Opened ' .. mapping.desc)
+        elseif vim.fn.isdirectory(file_path) == 1 then
+            vim.cmd('edit ' .. file_path)
+            ui.info('Opened ' .. mapping.desc)
+        else
+            ui.warn('File not found: ' .. file_path)
+            ui.info('Laravel global function: ' .. global_func .. ' - ' .. mapping.desc)
+        end
+    else
+        ui.info('Laravel global function: ' .. global_func .. ' - ' .. mapping.desc)
+    end
+end
+
+-- Debug function to test navigation detection
+function M.debug_navigation()
+    local line = vim.fn.getline('.')
+    local col = vim.fn.col('.')
+    local word = vim.fn.expand('<cword>')
+
+    vim.notify('Debug Navigation:', vim.log.levels.INFO)
+    vim.notify('Line: ' .. line, vim.log.levels.INFO)
+    vim.notify('Word: ' .. word, vim.log.levels.INFO)
+    vim.notify('Column: ' .. col, vim.log.levels.INFO)
+
+    -- Test Laravel context detection
+    local is_laravel_context = M.is_laravel_navigation_context()
+    vim.notify('Laravel context detected: ' .. tostring(is_laravel_context), vim.log.levels.INFO)
+
+    if is_laravel_context then
+        -- Test Laravel string navigation
+        local success = M.goto_laravel_string()
+        vim.notify('Laravel navigation success: ' .. tostring(success), vim.log.levels.INFO)
+    end
 end
 
 return M
