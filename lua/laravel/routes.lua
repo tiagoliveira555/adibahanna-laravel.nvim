@@ -501,17 +501,6 @@ function M.find_route_at_cursor()
     return nil
 end
 
--- Test route (placeholder for future implementation)
-function M.test_route()
-    local route_info = M.find_route_at_cursor()
-    if not route_info then
-        ui.warn('No route found at cursor')
-        return
-    end
-
-    ui.info('Route testing: ' .. (route_info.uri or 'unknown') .. ' (feature coming soon!)')
-end
-
 -- Clear routes cache
 function M.clear_cache()
     routes_cache = {}
@@ -524,11 +513,6 @@ function M.setup()
     vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
         pattern = '*/routes/*.php',
         callback = function()
-            vim.keymap.set('n', '<leader>rt', M.test_route, {
-                buffer = true,
-                desc = 'Test route at cursor'
-            })
-
             vim.keymap.set('n', 'gd', function()
                 -- First: check for Inertia or view helper call on the current line
                 local line = vim.fn.getline('.')

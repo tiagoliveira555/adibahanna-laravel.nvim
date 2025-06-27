@@ -34,7 +34,7 @@ function M.select(items, opts, on_choice)
     end)
 end
 
--- TODO: Implement proper snacks.nvim integration
+-- Future: Consider snacks.nvim integration for enhanced UI
 -- For now, we're using vim.ui.select for compatibility
 
 -- Input dialog with validation

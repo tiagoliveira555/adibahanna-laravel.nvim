@@ -1,53 +1,38 @@
 # Laravel.nvim
 
-A comprehensive Laravel plugin for Neovim that brings Laravel Idea-like functionality to your favorite editor. Navigate your Laravel projects with ease using intelligent go-to-definition and smart autocompletion.
+A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea for PhpStorm. This plugin provides intelligent navigation, autocompletion, and development tools specifically designed for Laravel projects.
 
 ## ✨ Features
 
-### 🧭 **Smart Navigation (`gd`)**
-Press `gd` on any Laravel string reference to instantly jump to the corresponding file:
+### 🧭 Smart Navigation
+- **Go to Definition (`gd`)**: Navigate to Laravel resources with context awareness
+  - Routes: `route('dashboard')` → routes/web.php
+  - Views: `view('users.index')` → resources/views/users/index.blade.php
+  - Inertia: `Inertia::render('Dashboard')` → resources/js/Pages/Dashboard.tsx
+  - Config: `config('app.name')` → config/app.php
+  - Translations: `__('auth.failed')` → lang/en/auth.php
+  - Controllers: `UserController::class` → app/Http/Controllers/UserController.php
+  - Laravel globals: `auth()`, `request()`, `session()`, etc.
 
-- **Routes**: `route('dashboard')` → jumps to route definition in `routes/*.php`
-- **Views**: `view('users.index')` → opens `resources/views/users/index.blade.php`
-- **Inertia**: `Inertia::render('dashboard')` → opens `resources/js/Pages/dashboard.tsx`
-- **Config**: `config('app.name')` → opens `config/app.php` and finds the key
-- **Translations**: `__('auth.failed')` → opens `lang/en/auth.php` and finds the key
-
-### 🚀 **Intelligent Autocompletion**
-Get context-aware completions for Laravel helpers with **highest priority** in your completion list:
-
+### 🔍 Intelligent Autocompletion
 - **Route names**: Auto-complete from your route definitions
-- **View names**: Complete Blade templates and Inertia components  
-- **Config keys**: Complete from your `config/*.php` files
-- **Translation keys**: Complete from your `lang/*.php` files
+- **View names**: Complete Blade templates and Inertia components
+- **Config keys**: Complete configuration keys from config files
+- **Translation keys**: Complete translation keys from language files
+- **30-second caching** for optimal performance
 
-### 🎯 **Supported Patterns**
-The plugin intelligently detects these Laravel patterns:
+### 📁 Automatic File Creation
+- **Missing view prompt**: When navigating to non-existent views, get prompted to create them
+- **Smart templates**: Detects your frontend stack (React, Vue, Svelte) and creates appropriate files
+- **Directory creation**: Automatically creates necessary directory structures
 
-```php
-// Route navigation
-route('dashboard')
-route('profile.edit')
-
-// View navigation  
-view('users.index')
-view('auth.login')
-Inertia::render('dashboard')
-inertia('settings/profile')
-
-// Config navigation
-config('app.name')
-config('database.default')
-
-// Translation navigation
-__('auth.failed')
-trans('validation.required')
-```
-
-### 📁 **File Support**
-- **PHP files**: Full Laravel navigation and completion
-- **Blade templates**: Laravel string navigation
-- **JavaScript/TypeScript**: Inertia navigation in Laravel projects
+### 🎯 Laravel-Specific Tools
+- **Artisan integration**: Run Artisan commands with autocompletion
+- **Route visualization**: View and navigate your application routes
+- **Migration helpers**: Navigate and manage database migrations
+- **Model navigation**: Quick access to Eloquent models
+- **Schema diagrams**: Visualize your database structure
+- **Architecture diagrams**: See your application structure
 
 ## 📦 Installation
 
@@ -55,13 +40,22 @@ trans('validation.required')
 
 ```lua
 {
-  "your-username/laravel.nvim",
-  dependencies = {
-    "nvim-lua/plenary.nvim",
-  },
-  config = function()
-    require('laravel').setup()
-  end,
+    "your-username/laravel.nvim",
+    dependencies = {
+        "nvim-telescope/telescope.nvim",
+        "MunifTanjim/nui.nvim",
+        "nvim-lua/plenary.nvim",
+    },
+    cmd = { "Artisan", "Laravel*" },
+    keys = {
+        { "<leader>la", ":LaravelArtisan<cr>", desc = "Laravel Artisan" },
+        { "<leader>lr", ":LaravelRoute<cr>", desc = "Laravel Routes" },
+        { "<leader>lm", ":LaravelMake<cr>", desc = "Laravel Make" },
+    },
+    event = { "VeryLazy" },
+    config = function()
+        require("laravel").setup()
+    end,
 }
 ```
 
@@ -69,11 +63,15 @@ trans('validation.required')
 
 ```lua
 use {
-  'your-username/laravel.nvim',
-  requires = 'nvim-lua/plenary.nvim',
-  config = function()
-    require('laravel').setup()
-  end
+    "your-username/laravel.nvim",
+    requires = {
+        "nvim-telescope/telescope.nvim",
+        "MunifTanjim/nui.nvim",
+        "nvim-lua/plenary.nvim",
+    },
+    config = function()
+        require("laravel").setup()
+    end
 }
 ```
 
@@ -82,106 +80,275 @@ use {
 ### Basic Setup
 
 ```lua
-require('laravel').setup()
+require("laravel").setup({
+    -- Configuration options (currently using defaults)
+})
 ```
 
 ### Completion Engine Integration
 
-#### For [blink.nvim](https://github.com/saghen/blink.cmp) users:
+#### For [blink.nvim](https://github.com/saghen/blink.nvim) users:
 
 ```lua
-require('blink.cmp').setup({
-  sources = {
-    default = { "laravel", "lsp", "path", "snippets", "buffer" },
-    providers = {
-      laravel = {
-        name = "Laravel",
-        module = "laravel.blink_source",
-        enabled = function()
-          return vim.bo.filetype == 'php' or vim.bo.filetype == 'blade'
-        end,
-        kind = "Laravel",
-        score_offset = 1000, -- Highest priority
-        min_keyword_length = 1,
-      },
+{
+    "saghen/blink.nvim",
+    opts = {
+        sources = {
+            default = { "laravel", "lsp", "path", "snippets", "buffer" },
+            providers = {
+                laravel = {
+                    name = "laravel",
+                    module = "laravel.blink_source",
+                    score_offset = 1000, -- High priority for Laravel completions
+                },
+            },
+        },
     },
-  },
-})
+}
 ```
 
 #### For [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) users:
 
 ```lua
 require('cmp').setup({
-  sources = cmp.config.sources({
-    { name = 'laravel' },
-    { name = 'nvim_lsp' },
-    { name = 'buffer' },
-  })
+    sources = cmp.config.sources({
+        { name = 'laravel' },
+        { name = 'nvim_lsp' },
+        { name = 'buffer' },
+    })
 })
 ```
 
-## 🎮 Usage
+## 🚀 Usage Examples
 
-### Navigation
+### Navigation with `gd`
 
-1. **Place your cursor** on any Laravel string reference
-2. **Press `gd`** to navigate to the corresponding file
-3. **Enjoy instant navigation** with automatic file detection and key searching
+#### Route Navigation
+```php
+// In your controller
+Route::get('/dashboard', function () {
+    return view('dashboard'); // Press 'gd' on 'dashboard'
+});
 
-### Completion
+// Press 'gd' on route name to jump to route definition
+return route('dashboard'); // → routes/web.php
+```
 
-1. **Start typing** a Laravel helper function: `route('`, `view('`, etc.
-2. **See Laravel completions** appear first in your completion list
-3. **Select and insert** the desired completion
+#### View Navigation
+```php
+// Blade templates
+return view('users.index'); // → resources/views/users/index.blade.php
+return view('auth.login'); // → resources/views/auth/login.blade.php
 
-### Commands
+// Inertia components
+return Inertia::render('Dashboard'); // → resources/js/Pages/Dashboard.tsx
+return Inertia::render('users/show'); // → resources/js/Pages/users/show.tsx
+```
 
-- `:LaravelTestCompletions` - Test the completion system
-- `:LaravelCompletions [type]` - Show completions for a specific type (route, view, config, trans)
-- `:LaravelClearCache` - Clear the completion cache
+#### Configuration Navigation
+```php
+// Navigate to config files
+$name = config('app.name'); // → config/app.php (to 'name' key)
+$driver = config('database.default'); // → config/database.php
+```
 
-## 🏗️ How It Works
+#### Translation Navigation
+```php
+// Navigate to language files
+$message = __('auth.failed'); // → lang/en/auth.php
+$welcome = trans('messages.welcome'); // → lang/en/messages.php
+```
 
-### Smart Pattern Detection
-The plugin uses intelligent pattern matching to detect Laravel helper functions and extract the complete string content, regardless of cursor position.
+#### Controller Navigation
+```php
+// Navigate to controller classes
+Route::get('/users', UserController::class); // → app/Http/Controllers/UserController.php
+```
 
-### Context-Aware Navigation
-Based on the detected Laravel function, the plugin:
-1. **Routes**: Searches `routes/*.php` files for named route definitions
-2. **Views**: Checks `resources/views/*.blade.php` and `resources/js/Pages/*` for components
-3. **Config**: Opens `config/*.php` files and searches for specific keys
-4. **Translations**: Opens `lang/en/*.php` files and finds translation keys
+### Autocompletion Examples
 
-### Fallback System
-If not in a Laravel context, the plugin gracefully falls back to:
-1. **LSP definition** (if available)
-2. **Built-in `gd`** behavior
+#### Route Completion
+```php
+// Type 'route(' and get completions for:
+route('dashboard')     // ← Auto-completed from routes/web.php
+route('users.index')   // ← From named routes
+route('api.users.show') // ← API routes included
+```
 
-### Performance
-- **30-second caching** for completion data
-- **Lazy loading** of Laravel project detection
-- **Efficient pattern matching** with minimal overhead
+#### View Completion
+```php
+// Type 'view(' and get completions for:
+view('dashboard')        // ← From resources/views/dashboard.blade.php
+view('users.index')      // ← From resources/views/users/index.blade.php
+view('auth.login')       // ← Nested directories supported
 
-## 🛠️ Requirements
+// Inertia completion
+Inertia::render('Dashboard')    // ← From resources/js/Pages/Dashboard.tsx
+Inertia::render('users/Show')   // ← Nested components
+```
 
-- **Neovim** 0.8.0+
-- **Laravel project** with standard directory structure
-- **Optional**: LSP server for non-Laravel definitions
-- **Optional**: Completion engine (blink.nvim or nvim-cmp)
+#### Config Completion
+```php
+// Type 'config(' and get completions for:
+config('app.name')           // ← From config/app.php
+config('database.default')   // ← From config/database.php
+config('mail.mailers.smtp')  // ← Nested keys supported
+```
 
-## 🎯 Supported Laravel Versions
+#### Translation Completion
+```php
+// Type '__(' and get completions for:
+__('auth.failed')        // ← From lang/en/auth.php
+__('validation.required') // ← From lang/en/validation.php
+trans('messages.welcome') // ← Custom translation files
+```
 
-This plugin works with any Laravel version that follows the standard directory structure:
+### File Creation Examples
 
-- ✅ Laravel 8+
-- ✅ Laravel 9+  
-- ✅ Laravel 10+
-- ✅ Laravel 11+
+When you navigate to a non-existent view, you'll be prompted to create it:
+
+```php
+// Navigate to non-existent view
+return Inertia::render('onboarding/welcome');
+// ↓ Plugin detects missing file and prompts:
+// "Create React TypeScript view onboarding/welcome? (y/N)"
+```
+
+The plugin will:
+1. **Detect your frontend stack** (React, Vue, Svelte, TypeScript)
+2. **Suggest multiple options**:
+   - `resources/views/onboarding/welcome.blade.php` (Blade)
+   - `resources/js/Pages/onboarding/welcome.tsx` (React TypeScript)
+   - `resources/js/Pages/Onboarding/Welcome.tsx` (Capitalized)
+3. **Create empty files** with proper extensions
+4. **Create directories** if they don't exist
+
+## 📋 Commands
+
+### Core Commands
+
+| Command          | Description                     | Example                                   |
+| ---------------- | ------------------------------- | ----------------------------------------- |
+| `:Artisan`       | Run Laravel Artisan commands    | `:Artisan make:controller UserController` |
+| `:LaravelMake`   | Interactive make command picker | `:LaravelMake`                            |
+| `:LaravelRoute`  | Show all application routes     | `:LaravelRoute`                           |
+| `:LaravelStatus` | Check plugin status             | `:LaravelStatus`                          |
+
+### Navigation Commands
+
+| Command                     | Description            | Example                             |
+| --------------------------- | ---------------------- | ----------------------------------- |
+| `:LaravelController [name]` | Navigate to controller | `:LaravelController UserController` |
+| `:LaravelModel [name]`      | Navigate to model      | `:LaravelModel User`                |
+| `:LaravelView [name]`       | Navigate to view       | `:LaravelView users.index`          |
+
+### Diagram Commands
+
+| Command                | Description                   |
+| ---------------------- | ----------------------------- |
+| `:LaravelSchema`       | Show database schema diagram  |
+| `:LaravelSchemaExport` | Export schema diagram to file |
+| `:LaravelArchitecture` | Show application architecture |
+
+### Cache Management
+
+| Command                      | Description               |
+| ---------------------------- | ------------------------- |
+| `:LaravelClearCache`         | Clear completion cache    |
+| `:LaravelCompletions [type]` | Show completions for type |
+
+## ⌨️ Default Keybindings
+
+### Global Keybindings
+- `gd` - Go to definition (Laravel-aware)
+- `<leader>la` - Laravel Artisan commands
+- `<leader>lr` - Show Laravel routes
+- `<leader>lm` - Laravel make commands
+
+### Route Files (`*/routes/*.php`)
+- `gd` - Navigate to view/controller from route definition
+- `<leader>lr` - List all routes
+
+### Controller Files (`*/Controllers/*.php`)
+- `gd` - Navigate to views, models, or other resources
+- `<leader>lv` - Navigate to view
+- `<leader>lm` - Navigate to model
+
+### Blade Templates (`*.blade.php`)
+- `gd` - Navigate to included templates or components
+- `<leader>lc` - Navigate to controller
+- `<leader>lr` - Show routes using this view
+
+### Migration Files (`*/migrations/*.php`)
+- `<leader>lm` - Navigate to related model
+- `<leader>ls` - Show schema diagram
+
+## 🔧 Advanced Configuration
+
+### Custom Keybindings
+
+```lua
+require("laravel").setup({
+    -- Custom keybindings will be added in future versions
+})
+
+-- For now, you can override keybindings after setup:
+vim.keymap.set('n', '<leader>ll', ':LaravelRoute<CR>', { desc = 'Laravel Routes' })
+vim.keymap.set('n', '<leader>lc', ':LaravelController<CR>', { desc = 'Laravel Controller' })
+```
+
+### Frontend Stack Detection
+
+The plugin automatically detects your frontend stack by analyzing:
+- `package.json` dependencies
+- Existing files in `resources/js/Pages/`
+- `tsconfig.json` for TypeScript support
+
+Supported stacks:
+- **React** (`.jsx`)
+- **React TypeScript** (`.tsx`)
+- **Vue** (`.vue`)
+- **Svelte** (`.svelte`)
+
+## 🎯 Laravel Functions Supported
+
+### Route Functions
+- `route('name')`
+- `route('name', $parameters)`
+
+### View Functions
+- `view('name')`
+- `view('name', $data)`
+- `Inertia::render('component')`
+- `inertia('component')`
+
+### Configuration Functions
+- `config('key')`
+- `config('key', $default)`
+
+### Translation Functions
+- `__('key')`
+- `trans('key')`
+- `trans_choice('key', $count)`
+
+### Laravel Global Functions
+- `auth()` → `config/auth.php`
+- `request()` → Request documentation
+- `session()` → `config/session.php`
+- `cache()` → `config/cache.php`
+- `storage()` → `config/filesystems.php`
+- And many more Laravel helpers
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Development Setup
+
+1. Clone the repository
+2. Make your changes
+3. Test with a Laravel project
+4. Submit a pull request
 
 ## 📄 License
 
@@ -189,4 +356,59 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-Inspired by Laravel Idea for PhpStorm, bringing similar functionality to the Neovim ecosystem.
+- Inspired by [Laravel Idea](https://laravel-idea.com/) for PhpStorm
+- Built for the Neovim community
+- Thanks to all Laravel developers who make this ecosystem amazing
+
+## 🐛 Troubleshooting
+
+### Plugin Not Loading
+- Ensure you're in a Laravel project (has `artisan` file)
+- Check `:LaravelStatus` for project detection
+- Verify plugin is properly installed
+
+### Completions Not Working
+- Check your completion engine integration
+- Run `:LaravelClearCache` to refresh completions
+- Ensure completion engine is properly configured
+
+### Navigation Issues
+- Verify file paths exist
+- Check Laravel project structure
+- Use `:LaravelStatus` to debug
+
+### Performance Issues
+- Completions are cached for 30 seconds
+- Use `:LaravelClearCache` if needed
+- Large projects may have slight delays on first load
+
+## 📚 More Examples
+
+### Complex Route Navigation
+```php
+Route::group(['prefix' => 'admin', 'middleware' => 'auth'], function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])
+         ->name('admin.dashboard'); // gd on 'admin.dashboard' works
+    
+    Route::resource('users', UserController::class); // gd on controller works
+});
+```
+
+### Nested View Navigation
+```php
+// Deep nesting supported
+return view('admin.users.partials.form'); 
+// → resources/views/admin/users/partials/form.blade.php
+
+return Inertia::render('Admin/Users/Show');
+// → resources/js/Pages/Admin/Users/Show.tsx
+```
+
+### Configuration with Dot Notation
+```php
+// All levels of nesting supported
+$smtp = config('mail.mailers.smtp.host');
+// → config/mail.php, navigates to nested array structure
+```
+
+This plugin brings the power of Laravel Idea to Neovim, making Laravel development more efficient and enjoyable!

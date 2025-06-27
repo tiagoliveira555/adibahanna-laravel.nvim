@@ -727,8 +727,8 @@ function M.goto_laravel_global(global_func)
         app = { type = 'provider', path = '/config/app.php', desc = 'Application configuration' },
         env = { type = 'file', path = '/.env', desc = 'Environment configuration' },
         config = { type = 'provider', path = '/config', desc = 'Configuration files' },
-        dd = { type = 'docs', desc = 'Dump and die helper - for debugging' },
-        dump = { type = 'docs', desc = 'Dump helper - for debugging' },
+        dd = { type = 'docs', desc = 'Dump and die helper' },
+        dump = { type = 'docs', desc = 'Dump helper' },
         logger = { type = 'provider', path = '/config/logging.php', desc = 'Logging configuration' },
         validator = { type = 'provider', path = '/config/validation.php', desc = 'Validation configuration' },
         abort = { type = 'docs', desc = 'Abort helper - throws HTTP exceptions' },
@@ -764,28 +764,6 @@ function M.goto_laravel_global(global_func)
         end
     else
         ui.info('Laravel global function: ' .. global_func .. ' - ' .. mapping.desc)
-    end
-end
-
--- Debug function to test navigation detection
-function M.debug_navigation()
-    local line = vim.fn.getline('.')
-    local col = vim.fn.col('.')
-    local word = vim.fn.expand('<cword>')
-
-    vim.notify('Debug Navigation:', vim.log.levels.INFO)
-    vim.notify('Line: ' .. line, vim.log.levels.INFO)
-    vim.notify('Word: ' .. word, vim.log.levels.INFO)
-    vim.notify('Column: ' .. col, vim.log.levels.INFO)
-
-    -- Test Laravel context detection
-    local is_laravel_context = M.is_laravel_navigation_context()
-    vim.notify('Laravel context detected: ' .. tostring(is_laravel_context), vim.log.levels.INFO)
-
-    if is_laravel_context then
-        -- Test Laravel string navigation
-        local success = M.goto_laravel_string()
-        vim.notify('Laravel navigation success: ' .. tostring(success), vim.log.levels.INFO)
     end
 end
 

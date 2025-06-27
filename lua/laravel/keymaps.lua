@@ -110,7 +110,7 @@ local function setup_laravel_keymaps()
                 require('laravel.architecture').show_architecture_diagram()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show architecture diagram' }))
 
-            -- Manual completion trigger for testing
+            -- Manual completion trigger
             vim.keymap.set('i', '<C-x><C-l>', function()
                 local line = vim.fn.getline('.')
                 local col = vim.fn.col('.') - 1

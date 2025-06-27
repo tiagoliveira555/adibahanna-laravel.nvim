@@ -201,59 +201,6 @@ local function setup_commands()
         require('laravel.completions').clear_cache()
         vim.notify('Laravel completion cache cleared', vim.log.levels.INFO)
     end, { desc = 'Clear Laravel completion cache' })
-
-    -- Test completion system
-    vim.api.nvim_create_user_command('LaravelTestCompletions', function()
-        local completions = require('laravel.completions')
-
-        vim.notify('Testing Laravel completions...', vim.log.levels.INFO)
-
-        -- Test route completions
-        local routes = completions.get_completions('route')
-        vim.notify('Routes found: ' .. #routes, vim.log.levels.INFO)
-
-        -- Test view completions
-        local views = completions.get_completions('view')
-        vim.notify('Views found: ' .. #views, vim.log.levels.INFO)
-
-        -- Test config completions
-        local configs = completions.get_completions('config')
-        vim.notify('Config keys found: ' .. #configs, vim.log.levels.INFO)
-
-        -- Show first few of each
-        if #routes > 0 then
-            vim.notify('First route: ' .. routes[1], vim.log.levels.INFO)
-        end
-        if #views > 0 then
-            vim.notify('First view: ' .. views[1], vim.log.levels.INFO)
-        end
-        if #configs > 0 then
-            vim.notify('First config: ' .. configs[1], vim.log.levels.INFO)
-        end
-    end, { desc = 'Test Laravel completion system' })
-
-    -- Debug navigation command
-    vim.api.nvim_create_user_command('LaravelDebugNavigation', function()
-        local line = vim.fn.getline('.')
-        local col = vim.fn.col('.')
-        local word = vim.fn.expand('<cword>')
-
-        vim.notify('Debug Navigation:', vim.log.levels.INFO)
-        vim.notify('Line: ' .. line, vim.log.levels.INFO)
-        vim.notify('Word: ' .. word, vim.log.levels.INFO)
-        vim.notify('Column: ' .. col, vim.log.levels.INFO)
-
-        -- Test Laravel context detection
-        local navigate = require('laravel.navigate')
-        local is_laravel_context = navigate.is_laravel_navigation_context()
-        vim.notify('Laravel context detected: ' .. tostring(is_laravel_context), vim.log.levels.INFO)
-
-        if is_laravel_context then
-            -- Test Laravel string navigation
-            local success = navigate.goto_laravel_string()
-            vim.notify('Laravel navigation success: ' .. tostring(success), vim.log.levels.INFO)
-        end
-    end, { desc = 'Debug Laravel navigation detection' })
 end
 
 -- Always setup commands first
