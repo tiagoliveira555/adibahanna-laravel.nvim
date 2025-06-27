@@ -192,7 +192,7 @@ local function setup_commands()
     end, {
         nargs = '?',
         complete = function()
-            return { 'route', 'view', 'config', '__', 'trans' }
+            return { 'route', 'view', 'config', '__', 'trans', 'env' }
         end,
         desc = 'Show Laravel completions for a function'
     })

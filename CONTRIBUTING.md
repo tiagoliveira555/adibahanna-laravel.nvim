@@ -13,7 +13,7 @@ Thank you for your interest in contributing to Laravel.nvim! This document provi
 
 1. **Fork and Clone**
    ```bash
-   git clone https://github.com/your-username/laravel.nvim.git
+   git clone https://github.com/adibhanna/laravel.nvim.git
    cd laravel.nvim
    ```
 

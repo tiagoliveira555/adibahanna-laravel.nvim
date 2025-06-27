@@ -33,6 +33,7 @@ local function get_completion_context(line, col)
         { name = 'config',          func = 'config' },
         { name = '__',              func = '__' },
         { name = 'trans',           func = 'trans' },
+        { name = 'env',             func = 'env' },
         { name = 'Inertia::render', func = 'view' },
         { name = 'inertia',         func = 'view' },
     }
@@ -64,6 +65,7 @@ local function get_completion_context(line, col)
         { pattern = "config%s*%(%s*['\"]([^'\"]*)",                func = 'config' },
         { pattern = "__%s*%(%s*['\"]([^'\"]*)",                    func = '__' },
         { pattern = "trans%s*%(%s*['\"]([^'\"]*)",                 func = 'trans' },
+        { pattern = "env%s*%(%s*['\"]([^'\"]*)",                   func = 'env' },
         { pattern = "Inertia%s*::%s*render%s*%(%s*['\"]([^'\"]*)", func = 'view' },
         { pattern = "inertia%s*%(%s*['\"]([^'\"]*)",               func = 'view' },
     }
@@ -76,6 +78,7 @@ local function get_completion_context(line, col)
         { pattern = "config%s*%(%s*['\"]([^'\"]+)['\"]",                func = 'config' },
         { pattern = "__%s*%(%s*['\"]([^'\"]+)['\"]",                    func = '__' },
         { pattern = "trans%s*%(%s*['\"]([^'\"]+)['\"]",                 func = 'trans' },
+        { pattern = "env%s*%(%s*['\"]([^'\"]+)['\"]",                   func = 'env' },
         { pattern = "Inertia%s*::%s*render%s*%(%s*['\"]([^'\"]+)['\"]", func = 'view' },
         { pattern = "inertia%s*%(%s*['\"]([^'\"]+)['\"]",               func = 'view' },
     }
@@ -142,6 +145,9 @@ function source:complete(request, callback)
         local completions_list = completions.get_completions(context.func, context.partial)
 
         for i, completion in ipairs(completions_list) do
+            -- Give env completions highest priority within Laravel completions
+            local sort_prefix = context.func == 'env' and '0000' or '0001'
+
             table.insert(items, {
                 label = completion,
                 kind = 1, -- Text kind, avoid requiring cmp here
@@ -152,8 +158,8 @@ function source:complete(request, callback)
                 },
                 insertText = completion,
                 filterText = completion,
-                sortText = string.format('%04d_%s', i, completion), -- High priority sorting
-                priority = 1000,                                    -- High priority
+                sortText = string.format('%s_%04d_%s', sort_prefix, i, completion), -- All Laravel completions first
+                priority = 2000,                                                    -- Maximum priority for all Laravel completions
             })
         end
 

@@ -10,6 +10,7 @@ local cache = {
     views = { data = {}, timestamp = 0 },
     config = { data = {}, timestamp = 0 },
     translations = { data = {}, timestamp = 0 },
+    env = { data = {}, timestamp = 0 },
 }
 
 local CACHE_TTL = 30 -- seconds
@@ -261,6 +262,57 @@ local function get_translation_keys()
     return unique_keys
 end
 
+-- Extract environment variables from .env files
+local function get_env_keys()
+    if is_cache_valid(cache.env) then
+        return cache.env.data
+    end
+
+    local root = get_project_root()
+    if not root then return {} end
+
+    local env_keys = {}
+    local env_files = {
+        root .. '/.env',
+        root .. '/.env.example',
+        root .. '/.env.local',
+        root .. '/.env.production',
+        root .. '/.env.staging',
+        root .. '/.env.testing',
+    }
+
+    for _, env_file in ipairs(env_files) do
+        if vim.fn.filereadable(env_file) == 1 then
+            local lines = vim.fn.readfile(env_file)
+            for _, line in ipairs(lines) do
+                -- Skip comments and empty lines
+                if not line:match('^%s*#') and not line:match('^%s*$') then
+                    -- Match KEY=value patterns
+                    local key = line:match('^([A-Z_][A-Z0-9_]*)%s*=')
+                    if key then
+                        env_keys[#env_keys + 1] = key
+                    end
+                end
+            end
+        end
+    end
+
+    -- Remove duplicates and sort
+    local unique_keys = {}
+    local seen = {}
+    for _, key in ipairs(env_keys) do
+        if not seen[key] then
+            seen[key] = true
+            unique_keys[#unique_keys + 1] = key
+        end
+    end
+    table.sort(unique_keys)
+
+    cache.env.data = unique_keys
+    cache.env.timestamp = os.time()
+    return unique_keys
+end
+
 -- Get completions based on function context
 function M.get_completions(func_name, partial)
     partial = partial or ''
@@ -275,6 +327,8 @@ function M.get_completions(func_name, partial)
         completions = get_config_keys()
     elseif func_name == '__' or func_name == 'trans' then
         completions = get_translation_keys()
+    elseif func_name == 'env' then
+        completions = get_env_keys()
     end
 
     -- Filter by partial match if provided

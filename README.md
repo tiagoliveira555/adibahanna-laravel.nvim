@@ -11,6 +11,7 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
   - Inertia: `Inertia::render('Dashboard')` → resources/js/Pages/Dashboard.tsx
   - Config: `config('app.name')` → config/app.php
   - Translations: `__('auth.failed')` → lang/en/auth.php
+  - Environment variables: `env('APP_NAME')` → .env file
   - Controllers: `UserController::class` → app/Http/Controllers/UserController.php
   - Laravel globals: `auth()`, `request()`, `session()`, etc.
 
@@ -19,6 +20,7 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
 - **View names**: Complete Blade templates and Inertia components
 - **Config keys**: Complete configuration keys from config files
 - **Translation keys**: Complete translation keys from language files
+- **Environment variables**: Complete from .env files
 - **30-second caching** for optimal performance
 
 ### 📁 Automatic File Creation
@@ -157,6 +159,13 @@ $message = __('auth.failed'); // → lang/en/auth.php
 $welcome = trans('messages.welcome'); // → lang/en/messages.php
 ```
 
+#### Environment Variable Navigation
+```php
+// Navigate to .env file
+$name = env('APP_NAME'); // → .env file (to APP_NAME line)
+$debug = env('APP_DEBUG'); // → .env file (to APP_DEBUG line)
+```
+
 #### Controller Navigation
 ```php
 // Navigate to controller classes
@@ -199,6 +208,14 @@ config('mail.mailers.smtp')  // ← Nested keys supported
 __('auth.failed')        // ← From lang/en/auth.php
 __('validation.required') // ← From lang/en/validation.php
 trans('messages.welcome') // ← Custom translation files
+```
+
+#### Environment Variable Completion
+```php
+// Type 'env(' and get completions for:
+env('APP_NAME')          // ← From .env file
+env('DB_CONNECTION')     // ← Database configuration
+env('MAIL_MAILER')       // ← Mail configuration
 ```
 
 ### File Creation Examples
@@ -328,6 +345,10 @@ Supported stacks:
 - `__('key')`
 - `trans('key')`
 - `trans_choice('key', $count)`
+
+### Environment Functions
+- `env('key')`
+- `env('key', $default)`
 
 ### Laravel Global Functions
 - `auth()` → `config/auth.php`

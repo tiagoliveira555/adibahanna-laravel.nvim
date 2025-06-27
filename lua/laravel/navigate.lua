@@ -337,6 +337,7 @@ function M.is_laravel_navigation_context()
         'config%s*%(',
         '__%s*%(',
         'trans%s*%(',
+        'env%s*%(',
         'Inertia%s*::%s*render%s*%(',
         'inertia%s*%(',
 
@@ -443,6 +444,7 @@ function M.goto_laravel_string()
             { name = 'config',          type = 'config' },
             { name = '__',              type = 'trans' },
             { name = 'trans',           type = 'trans' },
+            { name = 'env',             type = 'env' },
 
             -- URL helpers that reference routes
             { name = 'action',          type = 'route' },
@@ -505,6 +507,8 @@ function M.goto_laravel_string()
                     context = { func = 'config', partial = full_string }
                 elseif (line:match('__%s*%(') or line:match('trans%s*%(')) then
                     context = { func = 'trans', partial = full_string }
+                elseif line:match('env%s*%(') then
+                    context = { func = 'env', partial = full_string }
                 end
             end
         end
@@ -524,6 +528,8 @@ function M.goto_laravel_string()
         M.goto_config(context.partial)
     elseif context.func == 'trans' or context.func == '__' then
         M.goto_translation(context.partial)
+    elseif context.func == 'env' then
+        M.goto_env(context.partial)
     elseif context.func == 'asset' then
         M.goto_asset(context.partial)
     else
@@ -666,6 +672,55 @@ function M.goto_translation(trans_key)
     end
 
     ui.warn('Translation file not found: ' .. trans_file .. '.php')
+end
+
+-- Navigate to environment variable in .env file
+function M.goto_env(env_key)
+    if not env_key or env_key == '' then
+        ui.warn('No environment variable provided')
+        return
+    end
+
+    local root = get_project_root()
+    if not root then
+        ui.error('Not in a Laravel project')
+        return
+    end
+
+    -- Try different .env files
+    local env_files = {
+        root .. '/.env',
+        root .. '/.env.example',
+        root .. '/.env.local',
+        root .. '/.env.production',
+        root .. '/.env.staging',
+        root .. '/.env.testing',
+    }
+
+    for _, env_file in ipairs(env_files) do
+        if vim.fn.filereadable(env_file) == 1 then
+            local lines = vim.fn.readfile(env_file)
+            for i, line in ipairs(lines) do
+                -- Look for the environment variable
+                if line:match('^' .. vim.pesc(env_key) .. '%s*=') then
+                    vim.cmd('edit ' .. env_file)
+                    vim.fn.cursor(i, 1)
+                    vim.cmd('normal! zz')
+                    ui.info('Found environment variable: ' .. env_key .. ' in ' .. vim.fn.fnamemodify(env_file, ':t'))
+                    return
+                end
+            end
+        end
+    end
+
+    -- If not found, open the main .env file anyway
+    local main_env = root .. '/.env'
+    if vim.fn.filereadable(main_env) == 1 then
+        vim.cmd('edit ' .. main_env)
+        ui.warn('Environment variable "' .. env_key .. '" not found, but opened .env file')
+    else
+        ui.warn('No .env file found in project root')
+    end
 end
 
 -- Navigate to asset file
