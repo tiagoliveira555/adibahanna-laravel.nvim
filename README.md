@@ -40,9 +40,8 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
 
 ```lua
 {
-    "your-username/laravel.nvim",
+    "adibhanna/laravel.nvim",
     dependencies = {
-        "nvim-telescope/telescope.nvim",
         "MunifTanjim/nui.nvim",
         "nvim-lua/plenary.nvim",
     },
@@ -63,9 +62,8 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
 
 ```lua
 use {
-    "your-username/laravel.nvim",
+    "adibhanna/laravel.nvim",
     requires = {
-        "nvim-telescope/telescope.nvim",
         "MunifTanjim/nui.nvim",
         "nvim-lua/plenary.nvim",
     },
@@ -390,7 +388,7 @@ Route::group(['prefix' => 'admin', 'middleware' => 'auth'], function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])
          ->name('admin.dashboard'); // gd on 'admin.dashboard' works
     
-    Route::resource('users', UserController::class); // gd on controller works
+    Route::resource('users', UserController::class);
 });
 ```
 
@@ -411,4 +409,3 @@ $smtp = config('mail.mailers.smtp.host');
 // → config/mail.php, navigates to nested array structure
 ```
 
-This plugin brings the power of Laravel Idea to Neovim, making Laravel development more efficient and enjoyable!
