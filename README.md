@@ -5,6 +5,7 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
 ## ✨ Features
 
 ### 🧭 Smart Navigation
+
 - **Go to Definition (`gd`)**: Navigate to Laravel resources with context awareness
   - Routes: `route('dashboard')` → routes/web.php
   - Views: `view('users.index')` → resources/views/users/index.blade.php
@@ -16,6 +17,7 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
   - Laravel globals: `auth()`, `request()`, `session()`, etc.
 
 ### 🔍 Intelligent Autocompletion
+
 - **Route names**: Auto-complete from your route definitions
 - **View names**: Complete Blade templates and Inertia components
 - **Config keys**: Complete configuration keys from config files
@@ -24,11 +26,13 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
 - **30-second caching** for optimal performance
 
 ### 📁 Automatic File Creation
+
 - **Missing view prompt**: When navigating to non-existent views, get prompted to create them
 - **Smart templates**: Detects your frontend stack (React, Vue, Svelte) and creates appropriate files
 - **Directory creation**: Automatically creates necessary directory structures
 
 ### 🎯 Laravel-Specific Tools
+
 - **Artisan integration**: Run Artisan commands with autocompletion
 - **Route visualization**: View and navigate your application routes
 - **Migration helpers**: Navigate and manage database migrations
@@ -81,7 +85,23 @@ use {
 
 ```lua
 require("laravel").setup({
-    -- Configuration options (currently using defaults)
+    notifications = true, -- Enable/disable Laravel.nvim notifications (default: true)
+})
+```
+
+### Configuration Options
+
+| Option          | Type      | Default | Description                                            |
+| --------------- | --------- | ------- | ------------------------------------------------------ |
+| `notifications` | `boolean` | `true`  | Enable/disable Laravel project detection notifications |
+
+### Examples
+
+**Disable notifications:**
+
+```lua
+require("laravel").setup({
+    notifications = false, -- No notifications when Laravel project is detected
 })
 ```
 
@@ -124,6 +144,7 @@ require('cmp').setup({
 ### Navigation with `gd`
 
 #### Route Navigation
+
 ```php
 // In your controller
 Route::get('/dashboard', function () {
@@ -135,6 +156,7 @@ return route('dashboard'); // → routes/web.php
 ```
 
 #### View Navigation
+
 ```php
 // Blade templates
 return view('users.index'); // → resources/views/users/index.blade.php
@@ -146,6 +168,7 @@ return Inertia::render('users/show'); // → resources/js/Pages/users/show.tsx
 ```
 
 #### Configuration Navigation
+
 ```php
 // Navigate to config files
 $name = config('app.name'); // → config/app.php (to 'name' key)
@@ -153,6 +176,7 @@ $driver = config('database.default'); // → config/database.php
 ```
 
 #### Translation Navigation
+
 ```php
 // Navigate to language files
 $message = __('auth.failed'); // → lang/en/auth.php
@@ -160,6 +184,7 @@ $welcome = trans('messages.welcome'); // → lang/en/messages.php
 ```
 
 #### Environment Variable Navigation
+
 ```php
 // Navigate to .env file
 $name = env('APP_NAME'); // → .env file (to APP_NAME line)
@@ -167,6 +192,7 @@ $debug = env('APP_DEBUG'); // → .env file (to APP_DEBUG line)
 ```
 
 #### Controller Navigation
+
 ```php
 // Navigate to controller classes
 Route::get('/users', UserController::class); // → app/Http/Controllers/UserController.php
@@ -175,6 +201,7 @@ Route::get('/users', UserController::class); // → app/Http/Controllers/UserCon
 ### Autocompletion Examples
 
 #### Route Completion
+
 ```php
 // Type 'route(' and get completions for:
 route('dashboard')     // ← Auto-completed from routes/web.php
@@ -183,6 +210,7 @@ route('api.users.show') // ← API routes included
 ```
 
 #### View Completion
+
 ```php
 // Type 'view(' and get completions for:
 view('dashboard')        // ← From resources/views/dashboard.blade.php
@@ -195,6 +223,7 @@ Inertia::render('users/Show')   // ← Nested components
 ```
 
 #### Config Completion
+
 ```php
 // Type 'config(' and get completions for:
 config('app.name')           // ← From config/app.php
@@ -203,6 +232,7 @@ config('mail.mailers.smtp')  // ← Nested keys supported
 ```
 
 #### Translation Completion
+
 ```php
 // Type '__(' and get completions for:
 __('auth.failed')        // ← From lang/en/auth.php
@@ -211,6 +241,7 @@ trans('messages.welcome') // ← Custom translation files
 ```
 
 #### Environment Variable Completion
+
 ```php
 // Type 'env(' and get completions for:
 env('APP_NAME')          // ← From .env file
@@ -230,6 +261,7 @@ return Inertia::render('onboarding/welcome');
 ```
 
 The plugin will:
+
 1. **Detect your frontend stack** (React, Vue, Svelte, TypeScript)
 2. **Suggest multiple options**:
    - `resources/views/onboarding/welcome.blade.php` (Blade)
@@ -275,26 +307,31 @@ The plugin will:
 ## ⌨️ Default Keybindings
 
 ### Global Keybindings
+
 - `gd` - Go to definition (Laravel-aware)
 - `<leader>la` - Laravel Artisan commands
 - `<leader>lr` - Show Laravel routes
 - `<leader>lm` - Laravel make commands
 
 ### Route Files (`*/routes/*.php`)
+
 - `gd` - Navigate to view/controller from route definition
 - `<leader>lr` - List all routes
 
 ### Controller Files (`*/Controllers/*.php`)
+
 - `gd` - Navigate to views, models, or other resources
 - `<leader>lv` - Navigate to view
 - `<leader>lm` - Navigate to model
 
 ### Blade Templates (`*.blade.php`)
+
 - `gd` - Navigate to included templates or components
 - `<leader>lc` - Navigate to controller
 - `<leader>lr` - Show routes using this view
 
 ### Migration Files (`*/migrations/*.php`)
+
 - `<leader>lm` - Navigate to related model
 - `<leader>ls` - Show schema diagram
 
@@ -315,11 +352,13 @@ vim.keymap.set('n', '<leader>lc', ':LaravelController<CR>', { desc = 'Laravel Co
 ### Frontend Stack Detection
 
 The plugin automatically detects your frontend stack by analyzing:
+
 - `package.json` dependencies
 - Existing files in `resources/js/Pages/`
 - `tsconfig.json` for TypeScript support
 
 Supported stacks:
+
 - **React** (`.jsx`)
 - **React TypeScript** (`.tsx`)
 - **Vue** (`.vue`)
@@ -328,29 +367,35 @@ Supported stacks:
 ## 🎯 Laravel Functions Supported
 
 ### Route Functions
+
 - `route('name')`
 - `route('name', $parameters)`
 
 ### View Functions
+
 - `view('name')`
 - `view('name', $data)`
 - `Inertia::render('component')`
 - `inertia('component')`
 
 ### Configuration Functions
+
 - `config('key')`
 - `config('key', $default)`
 
 ### Translation Functions
+
 - `__('key')`
 - `trans('key')`
 - `trans_choice('key', $count)`
 
 ### Environment Functions
+
 - `env('key')`
 - `env('key', $default)`
 
 ### Laravel Global Functions
+
 - `auth()` → `config/auth.php`
 - `request()` → Request documentation
 - `session()` → `config/session.php`
@@ -382,21 +427,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🐛 Troubleshooting
 
 ### Plugin Not Loading
+
 - Ensure you're in a Laravel project (has `artisan` file)
 - Check `:LaravelStatus` for project detection
 - Verify plugin is properly installed
 
 ### Completions Not Working
+
 - Check your completion engine integration
 - Run `:LaravelClearCache` to refresh completions
 - Ensure completion engine is properly configured
 
 ### Navigation Issues
+
 - Verify file paths exist
 - Check Laravel project structure
 - Use `:LaravelStatus` to debug
 
 ### Performance Issues
+
 - Completions are cached for 30 seconds
 - Use `:LaravelClearCache` if needed
 - Large projects may have slight delays on first load
@@ -404,19 +453,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📚 More Examples
 
 ### Complex Route Navigation
+
 ```php
 Route::group(['prefix' => 'admin', 'middleware' => 'auth'], function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])
          ->name('admin.dashboard'); // gd on 'admin.dashboard' works
-    
+
     Route::resource('users', UserController::class);
 });
 ```
 
 ### Nested View Navigation
+
 ```php
 // Deep nesting supported
-return view('admin.users.partials.form'); 
+return view('admin.users.partials.form');
 // → resources/views/admin/users/partials/form.blade.php
 
 return Inertia::render('Admin/Users/Show');
@@ -424,9 +475,9 @@ return Inertia::render('Admin/Users/Show');
 ```
 
 ### Configuration with Dot Notation
+
 ```php
 // All levels of nesting supported
 $smtp = config('mail.mailers.smtp.host');
 // → config/mail.php, navigates to nested array structure
 ```
-

@@ -39,11 +39,12 @@ local function is_laravel_project()
 end
 
 -- Global state
-_G.laravel_nvim = {
+_G.laravel_nvim = _G.laravel_nvim or {
     project_root = nil,
     is_laravel_project = false,
     artisan_commands = {},
-
+    config = { notifications = true }, -- Default config if not set via setup()
+    setup_called = false,              -- Track if setup() has been called
 }
 
 -- Initialize Laravel environment
@@ -62,10 +63,13 @@ local function initialize_laravel()
     require('laravel.completions').setup()
     require('laravel.blink_source').setup()
 
-    if is_laravel then
-        vim.notify("Laravel.nvim: Laravel project detected at " .. root, vim.log.levels.INFO)
-    else
-        vim.notify("Laravel.nvim: Loaded (not in Laravel project)", vim.log.levels.INFO)
+    -- Only show notifications if setup() has been called and notifications are enabled
+    if _G.laravel_nvim.setup_called and _G.laravel_nvim.config and _G.laravel_nvim.config.notifications then
+        if is_laravel then
+            vim.notify("Laravel.nvim: Laravel project detected at " .. root, vim.log.levels.INFO)
+        else
+            vim.notify("Laravel.nvim: Loaded (not in Laravel project)", vim.log.levels.INFO)
+        end
     end
 end
 
@@ -73,11 +77,11 @@ end
 local function setup_autocommands()
     local group = vim.api.nvim_create_augroup('LaravelNvim', { clear = true })
 
-    -- Initialize when entering a buffer
+    -- Initialize when entering a buffer (only if not already initialized)
     vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
         group = group,
         callback = function()
-            if not _G.laravel_nvim.is_laravel_project then
+            if not _G.laravel_nvim.is_laravel_project and not _G.laravel_nvim.setup_called then
                 initialize_laravel()
             end
         end,
@@ -206,6 +210,12 @@ end
 -- Always setup commands first
 setup_commands()
 
--- Initialize the plugin
-initialize_laravel()
+-- Setup autocommands (initialization will happen when setup() is called or on first buffer)
 setup_autocommands()
+
+-- Only initialize if setup() hasn't been called (for non-lazy loading scenarios)
+vim.defer_fn(function()
+    if not _G.laravel_nvim.setup_called then
+        initialize_laravel()
+    end
+end, 100) -- Small delay to allow setup() to be called first
