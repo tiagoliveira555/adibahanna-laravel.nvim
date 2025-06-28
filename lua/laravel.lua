@@ -52,18 +52,23 @@ function M.setup(config)
         if config.notifications then
             vim.notify("Laravel.nvim: Laravel project detected at " .. project_root, vim.log.levels.INFO)
         end
+
+        -- Setup modules only if in Laravel project
+        require('laravel.keymaps').setup()
+        require('laravel.routes').setup()
+        require('laravel.artisan').setup()
+        require('laravel.blade').setup()
+        require('laravel.models').setup()
+        require('laravel.migrations').setup()
+        require('laravel.completions').setup()
+        require('laravel.blink_source').setup()
     else
         _G.laravel_nvim.is_laravel_project = false
         -- Show non-Laravel notification if enabled
         if config.notifications then
-            vim.notify("Laravel.nvim: Loaded (not in Laravel project)", vim.log.levels.INFO)
+            vim.notify("Laravel.nvim: Not in Laravel project - components not loaded", vim.log.levels.INFO)
         end
-        return
     end
-
-    -- Setup modules
-    require('laravel.keymaps').setup()
-    require('laravel.routes').setup()
 end
 
 return M

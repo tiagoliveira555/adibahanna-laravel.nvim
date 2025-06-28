@@ -53,22 +53,28 @@ local function initialize_laravel()
     _G.laravel_nvim.is_laravel_project = is_laravel
     _G.laravel_nvim.project_root = root
 
-    -- Always setup basic components (they handle non-Laravel projects gracefully)
-    require('laravel.artisan').setup()
-    require('laravel.blade').setup()
-    require('laravel.routes').setup()
-    require('laravel.models').setup()
-    require('laravel.migrations').setup()
-    require('laravel.keymaps').setup() -- Laravel-specific keymaps
-    require('laravel.completions').setup()
-    require('laravel.blink_source').setup()
+    -- Only setup Laravel components if we're in a Laravel project
+    if is_laravel then
+        require('laravel.artisan').setup()
+        require('laravel.blade').setup()
+        require('laravel.routes').setup()
+        require('laravel.models').setup()
+        require('laravel.migrations').setup()
+        require('laravel.keymaps').setup() -- Laravel-specific keymaps
+        require('laravel.completions').setup()
+        require('laravel.blink_source').setup()
 
-    -- Only show notifications if setup() has been called and notifications are enabled
-    if _G.laravel_nvim.setup_called and _G.laravel_nvim.config and _G.laravel_nvim.config.notifications then
-        if is_laravel then
+        -- Setup Laravel-specific commands
+        setup_laravel_commands()
+
+        -- Only show notifications if setup() has been called and notifications are enabled
+        if _G.laravel_nvim.setup_called and _G.laravel_nvim.config and _G.laravel_nvim.config.notifications then
             vim.notify("Laravel.nvim: Laravel project detected at " .. root, vim.log.levels.INFO)
-        else
-            vim.notify("Laravel.nvim: Loaded (not in Laravel project)", vim.log.levels.INFO)
+        end
+    else
+        -- Only show notifications if setup() has been called and notifications are enabled
+        if _G.laravel_nvim.setup_called and _G.laravel_nvim.config and _G.laravel_nvim.config.notifications then
+            vim.notify("Laravel.nvim: Not in Laravel project - components not loaded", vim.log.levels.INFO)
         end
     end
 end
@@ -77,11 +83,12 @@ end
 local function setup_autocommands()
     local group = vim.api.nvim_create_augroup('LaravelNvim', { clear = true })
 
-    -- Initialize when entering a buffer (only if not already initialized)
+    -- Initialize when entering a buffer (only if not already checked)
     vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
         group = group,
         callback = function()
-            if not _G.laravel_nvim.is_laravel_project and not _G.laravel_nvim.setup_called then
+            -- Only initialize if we haven't checked for Laravel project yet
+            if _G.laravel_nvim.project_root == nil and not _G.laravel_nvim.setup_called then
                 initialize_laravel()
             end
         end,
@@ -99,6 +106,31 @@ end
 
 -- Setup user commands
 local function setup_commands()
+    -- Always available commands (for debugging and status)
+    vim.api.nvim_create_user_command('LaravelStatus', function()
+        local is_laravel = _G.laravel_nvim.is_laravel_project
+        local root = _G.laravel_nvim.project_root
+
+        if is_laravel and root then
+            vim.notify("Laravel project detected at: " .. root, vim.log.levels.INFO)
+        else
+            vim.notify("Not in a Laravel project", vim.log.levels.WARN)
+        end
+
+        -- Check if artisan is available
+        if root then
+            local artisan_path = root .. '/artisan'
+            if vim.fn.filereadable(artisan_path) == 1 then
+                vim.notify("Artisan file found at: " .. artisan_path, vim.log.levels.INFO)
+            else
+                vim.notify("Artisan file not found at: " .. artisan_path, vim.log.levels.WARN)
+            end
+        end
+    end, { desc = 'Check Laravel.nvim status' })
+end
+
+-- Setup Laravel-specific commands (only called when in Laravel project)
+local function setup_laravel_commands()
     -- Artisan command
     vim.api.nvim_create_user_command('Artisan', function(opts)
         require('laravel.artisan').run_command(opts.args)
@@ -150,28 +182,6 @@ local function setup_commands()
     vim.api.nvim_create_user_command('LaravelArchitecture', function()
         require('laravel.architecture').show_architecture_diagram()
     end, { desc = 'Show Laravel application architecture diagram' })
-
-    -- Laravel status command
-    vim.api.nvim_create_user_command('LaravelStatus', function()
-        local is_laravel = _G.laravel_nvim.is_laravel_project
-        local root = _G.laravel_nvim.project_root
-
-        if is_laravel and root then
-            vim.notify("Laravel project detected at: " .. root, vim.log.levels.INFO)
-        else
-            vim.notify("Not in a Laravel project", vim.log.levels.WARN)
-        end
-
-        -- Check if artisan is available
-        if root then
-            local artisan_path = root .. '/artisan'
-            if vim.fn.filereadable(artisan_path) == 1 then
-                vim.notify("Artisan file found at: " .. artisan_path, vim.log.levels.INFO)
-            else
-                vim.notify("Artisan file not found at: " .. artisan_path, vim.log.levels.WARN)
-            end
-        end
-    end, { desc = 'Check Laravel.nvim status' })
 
     -- Completion management commands
     vim.api.nvim_create_user_command('LaravelCompletions', function(opts)

@@ -149,6 +149,11 @@ M.new = Source.new
 
 -- Setup function
 function M.setup()
+    -- Only setup if we're in a Laravel project
+    if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        return
+    end
+
     local ok, blink = pcall(require, 'blink.cmp')
     if not ok then
         -- Fallback to omnifunc
