@@ -306,48 +306,60 @@ The plugin will:
 
 ## ⌨️ Default Keybindings
 
-### Global Keybindings
+### Global Keybindings (All PHP Files)
 
 - `gd` - Go to definition (Laravel-aware)
-- `<leader>la` - Laravel Artisan commands
-- `<leader>lr` - Show Laravel routes
-- `<leader>lm` - Laravel make commands
-
-### Route Files (`*/routes/*.php`)
-
-- `gd` - Navigate to view/controller from route definition
-- `<leader>lr` - List all routes
-
-### Controller Files (`*/Controllers/*.php`)
-
-- `gd` - Navigate to views, models, or other resources
-- `<leader>lv` - Navigate to view
-- `<leader>lm` - Navigate to model
+- `<leader>Lc` - Go to controller
+- `<leader>Lm` - Go to model
+- `<leader>Lv` - Go to view
+- `<leader>LR` - Show all routes
+- `<leader>Lr` - Go to route file
+- `<leader>La` - Run Artisan command
+- `<leader>Lk` - Laravel make command
+- `<leader>Ls` - Show Laravel status
+- `<leader>LS` - Show schema diagram
+- `<leader>LE` - Export schema diagram
+- `<leader>LA` - Show architecture diagram
+- `<C-x><C-l>` - Manual completion trigger (insert mode)
 
 ### Blade Templates (`*.blade.php`)
 
-- `gd` - Navigate to included templates or components
-- `<leader>lc` - Navigate to controller
-- `<leader>lr` - Show routes using this view
+- `gd` - Go to definition (Laravel-aware)
+- `<leader>Lc` - Go to controller
+- `<leader>Lv` - Go to view
 
 ### Migration Files (`*/migrations/*.php`)
 
-- `<leader>lm` - Navigate to related model
-- `<leader>ls` - Show schema diagram
+- `<leader>Li` - Show migration info
+- `<leader>LM` - Run migration command
+
+### Model Files (`*/Models/*.php`)
+
+- `<leader>LR` - Show model relationships
+- `<leader>LA` - Show model attributes
+
+### JavaScript/TypeScript Files (Inertia projects)
+
+- `gd` - Go to definition (Laravel-aware for Inertia routes)
 
 ## 🔧 Advanced Configuration
 
 ### Custom Keybindings
 
+Laravel.nvim uses `<leader>L` (uppercase L) prefix for all keybindings to avoid conflicts with other plugins.
+
 ```lua
 require("laravel").setup({
-    -- Custom keybindings will be added in future versions
+    -- Configuration options
+    notifications = true,
 })
 
--- For now, you can override keybindings after setup:
-vim.keymap.set('n', '<leader>ll', ':LaravelRoute<CR>', { desc = 'Laravel Routes' })
+-- You can override keybindings after setup if needed:
+vim.keymap.set('n', '<leader>lr', ':LaravelRoute<CR>', { desc = 'Laravel Routes' })
 vim.keymap.set('n', '<leader>lc', ':LaravelController<CR>', { desc = 'Laravel Controller' })
 ```
+
+**Note:** All default Laravel.nvim keybindings use `<leader>L` (uppercase) prefix to avoid conflicts with other plugins.
 
 ### Frontend Stack Detection
 
