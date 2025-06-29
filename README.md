@@ -86,14 +86,16 @@ use {
 ```lua
 require("laravel").setup({
     notifications = true, -- Enable/disable Laravel.nvim notifications (default: true)
+    debug = false,        -- Enable/disable debug error notifications (default: false)
 })
 ```
 
 ### Configuration Options
 
-| Option          | Type      | Default | Description                                            |
-| --------------- | --------- | ------- | ------------------------------------------------------ |
-| `notifications` | `boolean` | `true`  | Enable/disable Laravel project detection notifications |
+| Option          | Type      | Default | Description                                              |
+| --------------- | --------- | ------- | -------------------------------------------------------- |
+| `notifications` | `boolean` | `true`  | Enable/disable Laravel project detection notifications   |
+| `debug`         | `boolean` | `false` | Enable/disable debug error notifications for completions |
 
 ### Examples
 
@@ -102,6 +104,14 @@ require("laravel").setup({
 ```lua
 require("laravel").setup({
     notifications = false, -- No notifications when Laravel project is detected
+})
+```
+
+**Enable debug mode (to see completion errors):**
+
+```lua
+require("laravel").setup({
+    debug = true, -- Show completion error notifications for debugging
 })
 ```
 

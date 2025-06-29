@@ -172,7 +172,10 @@ function source:complete(request, callback)
     if ok then
         callback(result)
     else
-        vim.notify('Laravel completion error: ' .. tostring(result), vim.log.levels.ERROR)
+        -- Only show error in debug mode to avoid annoying notifications on hover
+        if vim.g.laravel_nvim_debug then
+            vim.notify('Laravel completion error: ' .. tostring(result), vim.log.levels.ERROR)
+        end
         callback({ items = {}, isIncomplete = false })
     end
 end

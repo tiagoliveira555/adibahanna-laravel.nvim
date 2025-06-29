@@ -4,6 +4,7 @@ local M = {}
 -- Default configuration
 local default_config = {
     notifications = true, -- Enable/disable Laravel.nvim notifications
+    debug = false,        -- Enable/disable debug error notifications
 }
 
 -- Global state
@@ -41,6 +42,9 @@ function M.setup(config)
     -- Store configuration in global state
     _G.laravel_nvim.config = config
     _G.laravel_nvim.setup_called = true
+
+    -- Set global debug flag for completion error notifications
+    vim.g.laravel_nvim_debug = config.debug
 
     -- Find and set Laravel project root
     local project_root = find_laravel_project_root()
