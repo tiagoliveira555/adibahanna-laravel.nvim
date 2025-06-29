@@ -5,6 +5,7 @@ local M = {}
 local default_config = {
     notifications = true, -- Enable/disable Laravel.nvim notifications
     debug = false,        -- Enable/disable debug error notifications
+    keymaps = true,       -- Enable/disable Laravel.nvim keymaps
 }
 
 -- Global state
@@ -58,9 +59,12 @@ function M.setup(config)
         end
 
         -- Setup modules only if in Laravel project
-        require('laravel.keymaps').setup()
+        if config.keymaps then
+            require('laravel.keymaps').setup()
+        end
         require('laravel.routes').setup()
         require('laravel.artisan').setup()
+        require('laravel.composer').setup()
         require('laravel.blade').setup()
         require('laravel.models').setup()
         require('laravel.migrations').setup()

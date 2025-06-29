@@ -1,4 +1,13 @@
 -- Laravel-specific keymaps and utilities
+--
+-- To disable all Laravel keymaps and create your own, use:
+-- require('laravel').setup({ keymaps = false })
+--
+-- Then you can create custom keymaps using the available commands:
+-- vim.keymap.set('n', '<your-key>', ':Artisan<CR>')
+-- vim.keymap.set('n', '<your-key>', ':Composer<CR>')
+-- vim.keymap.set('n', '<your-key>', function() require('laravel.navigate').goto_controller() end)
+-- etc.
 local M = {}
 
 -- Setup Laravel-specific keymaps

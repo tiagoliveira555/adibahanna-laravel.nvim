@@ -56,11 +56,19 @@ local function initialize_laravel()
     -- Only setup Laravel components if we're in a Laravel project
     if is_laravel then
         require('laravel.artisan').setup()
+        require('laravel.composer').setup()
         require('laravel.blade').setup()
         require('laravel.routes').setup()
         require('laravel.models').setup()
         require('laravel.migrations').setup()
-        require('laravel.keymaps').setup() -- Laravel-specific keymaps
+        -- Only setup keymaps if enabled (default true, but respects user config)
+        local keymaps_enabled = _G.laravel_nvim.config and _G.laravel_nvim.config.keymaps
+        if keymaps_enabled == nil then
+            keymaps_enabled = true -- Default to true if not configured
+        end
+        if keymaps_enabled then
+            require('laravel.keymaps').setup() -- Laravel-specific keymaps
+        end
         require('laravel.completions').setup()
         require('laravel.blink_source').setup()
 
@@ -129,6 +137,63 @@ local function setup_commands()
         end,
         desc = 'Run Laravel Artisan commands'
     })
+
+    -- Composer command (always available)
+    vim.api.nvim_create_user_command('Composer', function(opts)
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.composer').run_command(opts.args)
+    end, {
+        nargs = '*',
+        complete = function()
+            if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+                return {}
+            end
+            return require('laravel.composer').get_completions()
+        end,
+        desc = 'Run Composer commands'
+    })
+
+    -- Composer require command with package suggestions
+    vim.api.nvim_create_user_command('ComposerRequire', function(opts)
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.composer').require_command(opts.args)
+    end, {
+        nargs = '*',
+        complete = function(arg_lead)
+            if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+                return {}
+            end
+            return require('laravel.composer').get_require_completions(arg_lead)
+        end,
+        desc = 'Composer require with package suggestions'
+    })
+
+    -- Composer remove command with installed package selection
+    vim.api.nvim_create_user_command('ComposerRemove', function(opts)
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.composer').remove_command(opts.args)
+    end, {
+        nargs = '*',
+        desc = 'Composer remove with installed package selection'
+    })
+
+    -- Show composer dependencies
+    vim.api.nvim_create_user_command('ComposerDependencies', function()
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.composer').show_dependencies()
+    end, { desc = 'Show composer project dependencies' })
 
     -- Laravel-specific navigation commands (always available)
     vim.api.nvim_create_user_command('LaravelController', function(opts)
@@ -244,8 +309,9 @@ local function setup_commands()
             return
         end
         require('laravel.completions').clear_cache()
-        vim.notify('Laravel completion cache cleared', vim.log.levels.INFO)
-    end, { desc = 'Clear Laravel completion cache' })
+        require('laravel.composer').clear_cache()
+        vim.notify('Laravel completion and composer cache cleared', vim.log.levels.INFO)
+    end, { desc = 'Clear Laravel completion and composer cache' })
 
     -- Status command (always available for debugging)
     vim.api.nvim_create_user_command('LaravelStatus', function()

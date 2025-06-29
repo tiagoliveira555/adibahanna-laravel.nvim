@@ -34,6 +34,7 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
 ### 🎯 Laravel-Specific Tools
 
 - **Artisan integration**: Run Artisan commands with autocompletion
+- **Composer integration**: Run Composer commands with interactive package management
 - **Route visualization**: View and navigate your application routes
 - **Migration helpers**: Navigate and manage database migrations
 - **Model navigation**: Quick access to Eloquent models
@@ -51,9 +52,10 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
         "MunifTanjim/nui.nvim",
         "nvim-lua/plenary.nvim",
     },
-    cmd = { "Artisan", "Laravel*" },
+    cmd = { "Artisan", "Composer", "Laravel*" },
     keys = {
-        { "<leader>la", ":LaravelArtisan<cr>", desc = "Laravel Artisan" },
+        { "<leader>la", ":Artisan<cr>", desc = "Laravel Artisan" },
+        { "<leader>lc", ":Composer<cr>", desc = "Composer" },
         { "<leader>lr", ":LaravelRoute<cr>", desc = "Laravel Routes" },
         { "<leader>lm", ":LaravelMake<cr>", desc = "Laravel Make" },
     },
@@ -87,6 +89,7 @@ use {
 require("laravel").setup({
     notifications = true, -- Enable/disable Laravel.nvim notifications (default: true)
     debug = false,        -- Enable/disable debug error notifications (default: false)
+    keymaps = true,       -- Enable/disable Laravel.nvim keymaps (default: true)
 })
 ```
 
@@ -96,6 +99,7 @@ require("laravel").setup({
 | --------------- | --------- | ------- | -------------------------------------------------------- |
 | `notifications` | `boolean` | `true`  | Enable/disable Laravel project detection notifications   |
 | `debug`         | `boolean` | `false` | Enable/disable debug error notifications for completions |
+| `keymaps`       | `boolean` | `true`  | Enable/disable Laravel.nvim default keymaps              |
 
 ### Examples
 
@@ -113,6 +117,21 @@ require("laravel").setup({
 require("laravel").setup({
     debug = true, -- Show completion error notifications for debugging
 })
+```
+
+**Disable default keymaps (to create custom ones):**
+
+```lua
+require("laravel").setup({
+    keymaps = false, -- Disable all default keymaps
+})
+
+-- Then create your own custom keymaps
+vim.keymap.set('n', '<leader>a', ':Artisan<CR>')
+vim.keymap.set('n', '<leader>c', ':Composer<CR>')
+vim.keymap.set('n', '<leader>gc', function()
+    require('laravel.navigate').goto_controller()
+end)
 ```
 
 ### Completion Engine Integration
@@ -259,6 +278,56 @@ env('DB_CONNECTION')     // ← Database configuration
 env('MAIL_MAILER')       // ← Mail configuration
 ```
 
+### Composer Management Examples
+
+#### Interactive Package Installation
+
+```vim
+:ComposerRequire
+" ↓ Plugin prompts for package name
+" Package name: laravel/horizon
+" ↓ Plugin prompts for version (optional)
+" Version constraint (optional): ^5.0
+" ↓ Plugin prompts for dev dependency
+" Install as dev dependency? (y/N): n
+" ↓ Runs: composer require laravel/horizon:^5.0
+```
+
+#### Interactive Package Removal
+
+```vim
+:ComposerRemove
+" ↓ Plugin shows fuzzy finder with installed packages
+" Select package to remove:
+" > laravel/horizon
+"   phpunit/phpunit
+"   spatie/laravel-ray
+" ↓ Runs: composer remove laravel/horizon
+```
+
+#### Direct Composer Commands
+
+```vim
+:Composer install              " Install dependencies
+:Composer update               " Update all packages
+:Composer dump-autoload        " Regenerate autoloader
+:Composer show                 " List installed packages
+:Composer outdated             " Show outdated packages
+:Composer validate             " Validate composer.json
+```
+
+#### Dependencies Visualization
+
+```vim
+:ComposerDependencies
+" ↓ Opens buffer showing dependency tree:
+" laravel/framework v10.0.0
+" ├── doctrine/inflector (^2.0)
+" ├── dragonmantank/cron-expression (^3.0)
+" ├── egulias/email-validator (^3.0)
+" └── ...
+```
+
 ### File Creation Examples
 
 When you navigate to a non-existent view, you'll be prompted to create it:
@@ -287,9 +356,19 @@ The plugin will:
 | Command          | Description                     | Example                                   |
 | ---------------- | ------------------------------- | ----------------------------------------- |
 | `:Artisan`       | Run Laravel Artisan commands    | `:Artisan make:controller UserController` |
+| `:Composer`      | Run Composer commands           | `:Composer install`                       |
 | `:LaravelMake`   | Interactive make command picker | `:LaravelMake`                            |
 | `:LaravelRoute`  | Show all application routes     | `:LaravelRoute`                           |
 | `:LaravelStatus` | Check plugin status             | `:LaravelStatus`                          |
+
+### Composer Commands
+
+| Command                  | Description                    | Example                            |
+| ------------------------ | ------------------------------ | ---------------------------------- |
+| `:Composer [command]`    | Run any Composer command       | `:Composer update`                 |
+| `:ComposerRequire [pkg]` | Interactive package require    | `:ComposerRequire laravel/horizon` |
+| `:ComposerRemove [pkg]`  | Interactive package removal    | `:ComposerRemove phpunit/phpunit`  |
+| `:ComposerDependencies`  | Show project dependencies tree | `:ComposerDependencies`            |
 
 ### Navigation Commands
 
@@ -309,10 +388,10 @@ The plugin will:
 
 ### Cache Management
 
-| Command                      | Description               |
-| ---------------------------- | ------------------------- |
-| `:LaravelClearCache`         | Clear completion cache    |
-| `:LaravelCompletions [type]` | Show completions for type |
+| Command                      | Description                         |
+| ---------------------------- | ----------------------------------- |
+| `:LaravelClearCache`         | Clear completion and composer cache |
+| `:LaravelCompletions [type]` | Show completions for type           |
 
 ## ⌨️ Default Keybindings
 
@@ -358,15 +437,29 @@ The plugin will:
 
 Laravel.nvim uses `<leader>L` (uppercase L) prefix for all keybindings to avoid conflicts with other plugins.
 
+You can disable all default keymaps and create your own:
+
 ```lua
 require("laravel").setup({
-    -- Configuration options
+    keymaps = false, -- Disable all default keymaps
     notifications = true,
 })
 
--- You can override keybindings after setup if needed:
+-- Create your own custom keymaps using available commands:
+vim.keymap.set('n', '<leader>a', ':Artisan<CR>', { desc = 'Artisan' })
+vim.keymap.set('n', '<leader>c', ':Composer<CR>', { desc = 'Composer' })
+vim.keymap.set('n', '<leader>cr', ':ComposerRequire<CR>', { desc = 'Composer Require' })
 vim.keymap.set('n', '<leader>lr', ':LaravelRoute<CR>', { desc = 'Laravel Routes' })
 vim.keymap.set('n', '<leader>lc', ':LaravelController<CR>', { desc = 'Laravel Controller' })
+
+-- Or use module functions directly:
+vim.keymap.set('n', '<leader>gc', function()
+    require('laravel.navigate').goto_controller()
+end, { desc = 'Go to Controller' })
+
+vim.keymap.set('n', '<leader>gm', function()
+    require('laravel.navigate').goto_model()
+end, { desc = 'Go to Model' })
 ```
 
 **Note:** All default Laravel.nvim keybindings use `<leader>L` (uppercase) prefix to avoid conflicts with other plugins.
