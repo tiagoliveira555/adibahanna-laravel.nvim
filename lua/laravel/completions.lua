@@ -329,10 +329,28 @@ function M.get_completions(func_name, partial)
         completions = get_translation_keys()
     elseif func_name == 'env' then
         completions = get_env_keys()
+    elseif func_name == 'app' then
+        -- Use IDE helper for container bindings
+        local ok, ide_helper = pcall(require, 'laravel.ide_helper')
+        if ok then
+            completions = ide_helper.get_container_completions()
+        end
+    elseif func_name == 'facade' then
+        -- Use IDE helper for facade method completions
+        local ok, ide_helper = pcall(require, 'laravel.ide_helper')
+        if ok then
+            completions = ide_helper.get_facade_completions(partial)
+        end
+    elseif func_name == 'fluent' then
+        -- Use IDE helper for fluent method completions
+        local ok, ide_helper = pcall(require, 'laravel.ide_helper')
+        if ok then
+            completions = ide_helper.get_fluent_completions()
+        end
     end
 
-    -- Filter by partial match if provided
-    if partial ~= '' then
+    -- Filter by partial match if provided (except for facade which already filters)
+    if partial ~= '' and func_name ~= 'facade' then
         local filtered = {}
         local partial_lower = partial:lower()
         for _, completion in ipairs(completions) do

@@ -310,8 +310,276 @@ local function setup_commands()
         end
         require('laravel.completions').clear_cache()
         require('laravel.composer').clear_cache()
-        vim.notify('Laravel completion and composer cache cleared', vim.log.levels.INFO)
-    end, { desc = 'Clear Laravel completion and composer cache' })
+        local ok, ide_helper = pcall(require, 'laravel.ide_helper')
+        if ok then
+            ide_helper.clear_cache()
+        end
+        vim.notify('Laravel completion, composer, and IDE helper cache cleared', vim.log.levels.INFO)
+    end, { desc = 'Clear Laravel completion, composer, and IDE helper cache' })
+
+    -- Laravel IDE Helper installation command
+    vim.api.nvim_create_user_command('LaravelInstallIdeHelper', function()
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+
+        local root = _G.laravel_nvim.project_root
+
+        vim.notify('Installing Laravel IDE Helper...', vim.log.levels.INFO)
+        local result = vim.fn.system('cd ' .. root .. ' && composer require --dev barryvdh/laravel-ide-helper')
+
+        if vim.v.shell_error ~= 0 then
+            vim.notify('Failed to install Laravel IDE Helper:\n' .. result, vim.log.levels.ERROR)
+            return
+        end
+
+        vim.notify('Laravel IDE Helper installed successfully!', vim.log.levels.INFO)
+
+        -- Ask if user wants to generate files now
+        local choice = vim.fn.confirm(
+            'Generate IDE Helper files now?',
+            '&Yes\n&No',
+            1
+        )
+
+        if choice == 1 then
+            vim.cmd('LaravelIdeHelper all')
+        end
+    end, { desc = 'Install Laravel IDE Helper package' })
+
+    -- Remove only the generated IDE Helper files (keep package)
+    vim.api.nvim_create_user_command('LaravelIdeHelperClean', function()
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+
+        local root = _G.laravel_nvim.project_root
+
+        local choice = vim.fn.confirm(
+            'Remove generated IDE Helper files?\n\nThis will delete:\n• _ide_helper.php\n• _ide_helper_models.php\n• .phpstorm.meta.php\n\nThe composer package will remain installed.',
+            '&Yes\n&No',
+            2 -- Default to No
+        )
+
+        if choice ~= 1 then
+            return
+        end
+
+        -- Remove generated files
+        local files_to_remove = {
+            root .. '/_ide_helper.php',
+            root .. '/_ide_helper_models.php',
+            root .. '/.phpstorm.meta.php'
+        }
+
+        local removed_count = 0
+        for _, file in ipairs(files_to_remove) do
+            if vim.fn.filereadable(file) == 1 then
+                vim.fn.delete(file)
+                vim.notify('Deleted: ' .. vim.fn.fnamemodify(file, ':t'), vim.log.levels.INFO)
+                removed_count = removed_count + 1
+            end
+        end
+
+        if removed_count == 0 then
+            vim.notify('No IDE Helper files found to remove', vim.log.levels.WARN)
+        else
+            -- Clear IDE helper cache
+            local ok, ide_helper = pcall(require, 'laravel.ide_helper')
+            if ok then
+                ide_helper.clear_cache()
+            end
+            vim.notify('IDE Helper files cleaned! (' .. removed_count .. ' files removed)', vim.log.levels.INFO)
+        end
+    end, { desc = 'Remove generated IDE Helper files (keep package)' })
+
+    -- Remove Laravel IDE Helper completely
+    vim.api.nvim_create_user_command('LaravelRemoveIdeHelper', function()
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+
+        local root = _G.laravel_nvim.project_root
+        local composer_json = root .. '/composer.json'
+
+        -- Check if IDE Helper is installed
+        local is_installed = false
+        if vim.fn.filereadable(composer_json) == 1 then
+            local content = vim.fn.readfile(composer_json)
+            local json_str = table.concat(content, '\n')
+            is_installed = json_str:find('"barryvdh/laravel%-ide%-helper"') ~= nil
+        end
+
+        if not is_installed then
+            vim.notify('Laravel IDE Helper is not installed', vim.log.levels.WARN)
+            return
+        end
+
+        local choice = vim.fn.confirm(
+            'Remove Laravel IDE Helper completely?\n\nThis will:\n• Remove the composer package\n• Delete all generated helper files\n• Clear completion cache',
+            '&Yes\n&No',
+            2 -- Default to No
+        )
+
+        if choice ~= 1 then
+            return
+        end
+
+        -- Remove the composer package (from dev dependencies)
+        vim.notify('Removing Laravel IDE Helper package...', vim.log.levels.INFO)
+        local result = vim.fn.system('cd ' .. root .. ' && composer remove --dev barryvdh/laravel-ide-helper 2>&1')
+
+        -- Check if the package was actually removed by checking composer.json again
+        local composer_content = vim.fn.readfile(composer_json)
+        local composer_str = table.concat(composer_content, '\n')
+        local still_present = composer_str:find('"barryvdh/laravel%-ide%-helper"') ~= nil
+
+        if still_present then
+            vim.notify('Package removal may have failed. Checking dependencies...', vim.log.levels.WARN)
+
+            -- Try to find out why it might still be there
+            local why_result = vim.fn.system('cd ' .. root .. ' && composer why barryvdh/laravel-ide-helper 2>&1')
+
+            vim.notify(
+                'Laravel IDE Helper package could not be completely removed.\n\nReason:\n' ..
+                why_result ..
+                '\n\nYou may need to manually run:\ncomposer remove --dev barryvdh/laravel-ide-helper\n\nContinuing to remove generated files...',
+                vim.log.levels.ERROR)
+        else
+            vim.notify('Package removed successfully!', vim.log.levels.INFO)
+        end
+
+        -- Remove generated files
+        local files_to_remove = {
+            root .. '/_ide_helper.php',
+            root .. '/_ide_helper_models.php',
+            root .. '/.phpstorm.meta.php'
+        }
+
+        for _, file in ipairs(files_to_remove) do
+            if vim.fn.filereadable(file) == 1 then
+                vim.fn.delete(file)
+                vim.notify('Deleted: ' .. vim.fn.fnamemodify(file, ':t'), vim.log.levels.INFO)
+            end
+        end
+
+        -- Clear IDE helper cache
+        local ok, ide_helper = pcall(require, 'laravel.ide_helper')
+        if ok then
+            ide_helper.clear_cache()
+        end
+
+        vim.notify('Laravel IDE Helper completely removed!', vim.log.levels.INFO)
+    end, { desc = 'Completely remove Laravel IDE Helper package and files' })
+
+    -- Check IDE Helper status command
+    vim.api.nvim_create_user_command('LaravelIdeHelperCheck', function()
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+
+        local root = _G.laravel_nvim.project_root
+        local composer_json = root .. '/composer.json'
+
+        -- Check if IDE Helper is installed
+        local is_installed = false
+        if vim.fn.filereadable(composer_json) == 1 then
+            local content = vim.fn.readfile(composer_json)
+            local json_str = table.concat(content, '\n')
+            is_installed = json_str:find('"barryvdh/laravel%-ide%-helper"') ~= nil
+        end
+
+        if not is_installed then
+            vim.notify('Laravel IDE Helper not installed. Run :LaravelInstallIdeHelper to install.', vim.log.levels.WARN)
+            return
+        end
+
+        -- Check for helper files
+        local files = {
+            { path = root .. '/_ide_helper.php',        name = 'main helper' },
+            { path = root .. '/_ide_helper_models.php', name = 'models' },
+            { path = root .. '/.phpstorm.meta.php',     name = 'meta' }
+        }
+
+        local missing = {}
+        for _, file in ipairs(files) do
+            if vim.fn.filereadable(file.path) == 0 then
+                table.insert(missing, file.name)
+            end
+        end
+
+        if #missing > 0 then
+            local choice = vim.fn.confirm(
+                'IDE Helper files missing: ' .. table.concat(missing, ', ') .. '\nGenerate them now?',
+                '&Yes\n&No',
+                1
+            )
+            if choice == 1 then
+                vim.cmd('LaravelIdeHelper all')
+            end
+        else
+            vim.notify('All IDE Helper files are present!', vim.log.levels.INFO)
+        end
+    end, { desc = 'Check Laravel IDE Helper status and files' })
+
+    -- IDE Helper management commands
+    vim.api.nvim_create_user_command('LaravelIdeHelper', function(opts)
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+
+        local action = opts.args or 'generate'
+        local root = _G.laravel_nvim.project_root
+
+        local commands = {
+            generate = 'php artisan ide-helper:generate',
+            models = 'php artisan ide-helper:models --write',
+            meta = 'php artisan ide-helper:meta',
+            all = {
+                'php artisan ide-helper:generate',
+                'php artisan ide-helper:models --write',
+                'php artisan ide-helper:meta'
+            }
+        }
+
+        local cmd_list = commands[action]
+        if not cmd_list then
+            vim.notify('Unknown action: ' .. action .. '\nAvailable: generate, models, meta, all', vim.log.levels.ERROR)
+            return
+        end
+
+        if type(cmd_list) == 'string' then
+            cmd_list = { cmd_list }
+        end
+
+        for _, cmd in ipairs(cmd_list) do
+            vim.notify('Running: ' .. cmd, vim.log.levels.INFO)
+            local result = vim.fn.system('cd ' .. root .. ' && ' .. cmd)
+            if vim.v.shell_error ~= 0 then
+                vim.notify('Failed to run: ' .. cmd .. '\n' .. result, vim.log.levels.ERROR)
+                return
+            end
+        end
+
+        vim.notify('IDE Helper files generated successfully!', vim.log.levels.INFO)
+
+        -- Clear cache after generation
+        local ok, ide_helper = pcall(require, 'laravel.ide_helper')
+        if ok then
+            ide_helper.clear_cache()
+        end
+    end, {
+        nargs = '?',
+        complete = function()
+            return { 'generate', 'models', 'meta', 'all' }
+        end,
+        desc = 'Generate Laravel IDE Helper files'
+    })
 
     -- Status command (always available for debugging)
     vim.api.nvim_create_user_command('LaravelStatus', function()

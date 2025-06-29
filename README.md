@@ -23,6 +23,10 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
 - **Config keys**: Complete configuration keys from config files
 - **Translation keys**: Complete translation keys from language files
 - **Environment variables**: Complete from .env files
+- **Enhanced IDE Helper completions** (when installed):
+  - **Facade methods**: `DB::table()`, `Cache::get()`, `Auth::user()`
+  - **Container bindings**: `app('service')`, `resolve('binding')`
+  - **Fluent migration methods**: `$table->string()`, `$table->nullable()`
 - **30-second caching** for optimal performance
 
 ### 📁 Automatic File Creation
@@ -119,6 +123,47 @@ require("laravel").setup({
 })
 ```
 
+**Enable Laravel IDE Helper integration:**
+
+First, install the Laravel IDE Helper package in your Laravel project:
+
+```bash
+# In your Laravel project root
+composer require --dev barryvdh/laravel-ide-helper
+```
+
+Then generate the helper files:
+
+```bash
+# Generate all IDE helper files
+php artisan ide-helper:generate
+php artisan ide-helper:models --write
+php artisan ide-helper:meta
+```
+
+Or use the Neovim commands after opening your Laravel project:
+
+```vim
+" Install Laravel IDE Helper (if not already installed)
+:LaravelInstallIdeHelper
+
+" Check IDE Helper status and optionally generate files
+:LaravelIdeHelperCheck
+
+" Or directly generate all IDE helper files
+:LaravelIdeHelper all
+
+" Remove only the generated files (keep package installed)
+:LaravelIdeHelperClean
+
+" To completely remove IDE Helper (package + files)
+:LaravelRemoveIdeHelper
+```
+
+The plugin will automatically detect when IDE Helper is installed and provide enhanced completions!
+
+> **Note**: The plugin will no longer show automatic prompts on startup. Use `:LaravelIdeHelperCheck` to manually check if files need to be generated.
+
 **Disable default keymaps (to create custom ones):**
 
 ```lua
@@ -148,7 +193,6 @@ end)
                 laravel = {
                     name = "laravel",
                     module = "laravel.blink_source",
-                    score_offset = 1000, -- High priority for Laravel completions
                 },
             },
         },
@@ -278,6 +322,53 @@ env('DB_CONNECTION')     // ← Database configuration
 env('MAIL_MAILER')       // ← Mail configuration
 ```
 
+#### Laravel IDE Helper Integration
+
+With [barryvdh/laravel-ide-helper](https://github.com/barryvdh/laravel-ide-helper) installed, you get enhanced completions for:
+
+##### Facade Method Completion
+
+```php
+// Type 'DB::' and get completions for:
+DB::table('users')       // ← Database methods
+DB::connection()         // ← Connection methods
+DB::transaction()        // ← Transaction methods
+
+// Other facades work too:
+Cache::get()             // ← Cache methods
+Auth::user()             // ← Authentication methods
+Storage::disk()          // ← Storage methods
+```
+
+##### Container Binding Completion
+
+```php
+// Type 'app(' and get completions for:
+app('auth')              // ← From container bindings
+app('cache')             // ← Service container
+app('config')            // ← Configuration service
+resolve('custom.service') // ← Custom bindings
+```
+
+##### Fluent Migration Methods
+
+```php
+Schema::create('users', function (Blueprint $table) {
+    $table->id();            // ← Auto-completion after $table->
+    $table->string('name');  // ← Column types
+    $table->nullable();      // ← Column modifiers
+    $table->index();         // ← Index methods
+});
+```
+
+> **Note**: To enable IDE Helper completions, install the package:
+>
+> ```bash
+> composer require --dev barryvdh/laravel-ide-helper
+> ```
+>
+> Then run `:LaravelIdeHelper all` to generate the helper files.
+
 ### Composer Management Examples
 
 #### Interactive Package Installation
@@ -388,10 +479,27 @@ The plugin will:
 
 ### Cache Management
 
-| Command                      | Description                         |
-| ---------------------------- | ----------------------------------- |
-| `:LaravelClearCache`         | Clear completion and composer cache |
-| `:LaravelCompletions [type]` | Show completions for type           |
+| Command                      | Description                                      |
+| ---------------------------- | ------------------------------------------------ |
+| `:LaravelClearCache`         | Clear completion, composer, and IDE helper cache |
+| `:LaravelCompletions [type]` | Show completions for type                        |
+
+### IDE Helper Integration
+
+| Command                      | Description                                    |
+| ---------------------------- | ---------------------------------------------- |
+| `:LaravelInstallIdeHelper`   | Install Laravel IDE Helper package             |
+| `:LaravelIdeHelperCheck`     | Check IDE Helper status and files              |
+| `:LaravelIdeHelper [action]` | Generate IDE Helper files                      |
+| `:LaravelIdeHelperClean`     | Remove generated files (keep package)          |
+| `:LaravelRemoveIdeHelper`    | Completely remove IDE Helper package and files |
+
+**Available actions for `:LaravelIdeHelper`:**
+
+- `generate` - Generate facade helpers
+- `models` - Generate model helpers
+- `meta` - Generate PhpStorm meta file
+- `all` - Generate all helper files
 
 ## ⌨️ Default Keybindings
 

@@ -70,6 +70,7 @@ function M.setup(config)
         require('laravel.migrations').setup()
         require('laravel.completions').setup()
         require('laravel.blink_source').setup()
+        require('laravel.ide_helper').setup()
     else
         _G.laravel_nvim.is_laravel_project = false
         -- Show non-Laravel notification if enabled

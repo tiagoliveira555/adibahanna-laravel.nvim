@@ -22,6 +22,8 @@ local function get_completion_context(line, col)
         { name = 'env',             func = 'env' },
         { name = 'Inertia::render', func = 'view' },
         { name = 'inertia',         func = 'view' },
+        { name = 'app',             func = 'app' },
+        { name = 'resolve',         func = 'app' },
     }
 
     -- Try to find a complete Laravel function call on this line
@@ -42,8 +44,29 @@ local function get_completion_context(line, col)
         end
     end
 
-    -- Fallback: use the old method for partial matches during typing
+    -- Check for facade method calls: FacadeName::methodName
     local before_cursor = line:sub(1, col)
+    local facade_pattern = "([%w_]+)::[%w_]*$"
+    local facade_match = before_cursor:match(facade_pattern)
+    if facade_match then
+        return {
+            func = 'facade',
+            partial = facade_match,
+            start_col = col - #facade_match + 1
+        }
+    end
+
+    -- Check for fluent migration methods: $table->methodName
+    local fluent_pattern = "%$[%w_]*%s*%->[%w_]*$"
+    if before_cursor:match(fluent_pattern) then
+        return {
+            func = 'fluent',
+            partial = '',
+            start_col = col
+        }
+    end
+
+    -- Fallback: use the old method for partial matches during typing
     local patterns = {
         { pattern = "route%s*%(%s*['\"]([^'\"]*)",           func = 'route' },
         { pattern = "view%s*%(%s*['\"]([^'\"]*)",            func = 'view' },
@@ -51,6 +74,8 @@ local function get_completion_context(line, col)
         { pattern = "__%s*%(%s*['\"]([^'\"]*)",              func = '__' },
         { pattern = "trans%s*%(%s*['\"]([^'\"]*)",           func = 'trans' },
         { pattern = "env%s*%(%s*['\"]([^'\"]*)",             func = 'env' },
+        { pattern = "app%s*%(%s*['\"]([^'\"]*)",             func = 'app' },
+        { pattern = "resolve%s*%(%s*['\"]([^'\"]*)",         func = 'app' },
         { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]*)", func = 'view' },
         { pattern = "inertia%s*%(%s*['\"]([^'\"]*)",         func = 'view' },
     }
@@ -102,9 +127,16 @@ function Source:get_completions(context, callback)
             -- Give env completions highest priority within Laravel completions
             local sort_prefix = completion_context.func == 'env' and '0000' or '0001'
 
+            -- Get the correct kind value for blink.cmp
+            local kind = 1 -- Default to Text kind
+            local ok, types = pcall(require, 'blink.cmp.types')
+            if ok and types.CompletionItemKind then
+                kind = types.CompletionItemKind.Text or 1
+            end
+
             table.insert(items, {
                 label = completion,
-                kind = 1, -- Text kind
+                kind = kind,
                 detail = 'Laravel ' .. completion_context.func .. '()',
                 documentation = {
                     kind = 'markdown',
@@ -140,11 +172,7 @@ function Source:resolve(item, callback)
 end
 
 function Source:get_trigger_characters()
-    return { "'", '"' }
-end
-
-function Source:should_show_completion_item(context, item)
-    return true
+    return { "'", '"', ':', '>' }
 end
 
 -- Export the Source class for blink.nvim to instantiate

@@ -36,6 +36,8 @@ local function get_completion_context(line, col)
         { name = 'env',             func = 'env' },
         { name = 'Inertia::render', func = 'view' },
         { name = 'inertia',         func = 'view' },
+        { name = 'app',             func = 'app' },
+        { name = 'resolve',         func = 'app' },
     }
 
     -- Try to find a complete Laravel function call on this line
@@ -56,6 +58,27 @@ local function get_completion_context(line, col)
         end
     end
 
+    -- Check for facade method calls: FacadeName::methodName
+    local facade_pattern = "([%w_]+)::[%w_]*$"
+    local facade_match = before_cursor:match(facade_pattern)
+    if facade_match then
+        return {
+            func = 'facade',
+            partial = facade_match,
+            trigger_char = line:sub(col, col)
+        }
+    end
+
+    -- Check for fluent migration methods: $table->methodName
+    local fluent_pattern = "%$[%w_]*%s*%->[%w_]*$"
+    if before_cursor:match(fluent_pattern) then
+        return {
+            func = 'fluent',
+            partial = '',
+            trigger_char = line:sub(col, col)
+        }
+    end
+
     -- Fallback: use the old method for partial matches during typing
     local before_cursor = line:sub(1, col)
 
@@ -66,6 +89,8 @@ local function get_completion_context(line, col)
         { pattern = "__%s*%(%s*['\"]([^'\"]*)",                    func = '__' },
         { pattern = "trans%s*%(%s*['\"]([^'\"]*)",                 func = 'trans' },
         { pattern = "env%s*%(%s*['\"]([^'\"]*)",                   func = 'env' },
+        { pattern = "app%s*%(%s*['\"]([^'\"]*)",                   func = 'app' },
+        { pattern = "resolve%s*%(%s*['\"]([^'\"]*)",               func = 'app' },
         { pattern = "Inertia%s*::%s*render%s*%(%s*['\"]([^'\"]*)", func = 'view' },
         { pattern = "inertia%s*%(%s*['\"]([^'\"]*)",               func = 'view' },
     }
@@ -79,6 +104,8 @@ local function get_completion_context(line, col)
         { pattern = "__%s*%(%s*['\"]([^'\"]+)['\"]",                    func = '__' },
         { pattern = "trans%s*%(%s*['\"]([^'\"]+)['\"]",                 func = 'trans' },
         { pattern = "env%s*%(%s*['\"]([^'\"]+)['\"]",                   func = 'env' },
+        { pattern = "app%s*%(%s*['\"]([^'\"]+)['\"]",                   func = 'app' },
+        { pattern = "resolve%s*%(%s*['\"]([^'\"]+)['\"]",               func = 'app' },
         { pattern = "Inertia%s*::%s*render%s*%(%s*['\"]([^'\"]+)['\"]", func = 'view' },
         { pattern = "inertia%s*%(%s*['\"]([^'\"]+)['\"]",               func = 'view' },
     }
@@ -116,7 +143,7 @@ M.get_completion_context = get_completion_context
 local source = {}
 
 function source:get_trigger_characters()
-    return { "'", '"' }
+    return { "'", '"', ':', '>' }
 end
 
 function source:get_keyword_pattern()
