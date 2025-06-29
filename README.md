@@ -214,17 +214,17 @@ require('cmp').setup({
 
 ## 🚀 Usage Examples
 
-### Navigation with `gd`
+### Navigation with `gd` or `:LaravelGoto`
 
 #### Route Navigation
 
 ```php
 // In your controller
 Route::get('/dashboard', function () {
-    return view('dashboard'); // Press 'gd' on 'dashboard'
+    return view('dashboard'); // Press 'gd' or run :LaravelGoto on 'dashboard'
 });
 
-// Press 'gd' on route name to jump to route definition
+// Press 'gd' or run :LaravelGoto on route name to jump to route definition
 return route('dashboard'); // → routes/web.php
 ```
 
@@ -463,11 +463,12 @@ The plugin will:
 
 ### Navigation Commands
 
-| Command                     | Description            | Example                             |
-| --------------------------- | ---------------------- | ----------------------------------- |
-| `:LaravelController [name]` | Navigate to controller | `:LaravelController UserController` |
-| `:LaravelModel [name]`      | Navigate to model      | `:LaravelModel User`                |
-| `:LaravelView [name]`       | Navigate to view       | `:LaravelView users.index`          |
+| Command                     | Description                   | Example                             |
+| --------------------------- | ----------------------------- | ----------------------------------- |
+| `:LaravelGoto`              | Laravel-aware goto definition | `:LaravelGoto` (same as `gd`)       |
+| `:LaravelController [name]` | Navigate to controller        | `:LaravelController UserController` |
+| `:LaravelModel [name]`      | Navigate to model             | `:LaravelModel User`                |
+| `:LaravelView [name]`       | Navigate to view              | `:LaravelView users.index`          |
 
 ### Diagram Commands
 

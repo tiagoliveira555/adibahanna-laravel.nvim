@@ -220,6 +220,30 @@ local function setup_commands()
         require('laravel.navigate').goto_view(opts.args)
     end, { nargs = '?', desc = 'Navigate to Laravel view' })
 
+    -- Laravel goto definition command (equivalent to gd keymap)
+    vim.api.nvim_create_user_command('LaravelGoto', function()
+        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+
+        local navigate = require('laravel.navigate')
+        if navigate.is_laravel_navigation_context() then
+            -- This is a Laravel-specific context, try Laravel navigation
+            local success = pcall(navigate.goto_laravel_string)
+            if success then
+                return -- Laravel navigation succeeded
+            end
+        end
+
+        -- Default to LSP definition for everything else
+        if vim.lsp.buf.definition then
+            vim.lsp.buf.definition()
+        else
+            vim.notify('No LSP definition available', vim.log.levels.WARN)
+        end
+    end, { desc = 'Laravel-aware goto definition (same as gd)' })
+
     vim.api.nvim_create_user_command('LaravelRoute', function()
         if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
