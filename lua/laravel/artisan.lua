@@ -62,6 +62,8 @@ local function get_artisan_commands()
     end
 
     local root = get_project_root()
+
+    -- Try Sail if available, but fall back gracefully if containers aren't running
     local artisan_cmd = sail.wrap_command('php artisan list --format=txt')
     local cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. artisan_cmd
 
@@ -75,7 +77,20 @@ local function get_artisan_commands()
 
         return commands
     else
-        vim.notify('Failed to get artisan commands: ' .. output, vim.log.levels.ERROR)
+        -- If Sail command failed, try direct artisan execution silently
+        if artisan_cmd:match('sail') then
+            local direct_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && php artisan list --format=txt'
+            local direct_output = vim.fn.system(direct_cmd)
+            if vim.v.shell_error == 0 then
+                local commands = parse_artisan_list(direct_output)
+                artisan_cache.commands = commands
+                cache_timestamp = current_time
+                return commands
+            end
+        end
+
+        -- Only show error if both Sail and direct execution failed
+        vim.notify('Failed to get artisan commands. Make sure artisan is available.', vim.log.levels.WARN)
         return {}
     end
 end
@@ -106,6 +121,12 @@ function M.run_command(args)
 
     -- Open terminal and run command
     local terminal_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. artisan_cmd
+
+    -- If using Sail, add fallback command in case containers aren't running
+    if artisan_cmd:match('sail') then
+        local fallback_cmd = 'php artisan ' .. (args or '')
+        terminal_cmd = terminal_cmd .. ' || ' .. fallback_cmd
+    end
 
     -- Create a new split and run the command
     vim.cmd('split')
@@ -171,8 +192,22 @@ function M.run_command_silent(cmd, callback)
 
     Job.run(full_cmd, {
         on_complete = function(success, output)
-            if callback then
-                callback(success, output)
+            if success then
+                if callback then callback(success, output) end
+            else
+                -- If Sail command failed, try direct artisan execution
+                if artisan_cmd:match('sail') then
+                    local direct_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && php artisan ' .. cmd
+                    Job.run(direct_cmd, {
+                        on_complete = function(direct_success, direct_output)
+                            if callback then
+                                callback(direct_success, direct_output)
+                            end
+                        end
+                    })
+                else
+                    if callback then callback(success, output) end
+                end
             end
         end
     })

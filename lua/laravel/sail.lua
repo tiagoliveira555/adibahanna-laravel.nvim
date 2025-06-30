@@ -183,6 +183,33 @@ function M.logs(service)
     M.run_command(logs_cmd)
 end
 
+-- Detect OrbStack domain for the current project
+local function get_orbstack_domain()
+    -- Always try the fallback domain first, since that's what works in your environment
+    local fallback = 'laravel.test.sailproject.orb.local'
+    local test_cmd = 'curl -s -o /dev/null -w "%{http_code}" http://' .. fallback .. ' 2>/dev/null || echo "000"'
+    local result = vim.fn.system(test_cmd)
+    if result:match('^2%d%d$') then
+        return 'http://' .. fallback
+    end
+    return nil
+end
+
+-- Get the best URL for the Sail application
+local function get_sail_url()
+    -- User config always wins
+    if _G.laravel_nvim.config.sail and _G.laravel_nvim.config.sail.url then
+        return _G.laravel_nvim.config.sail.url
+    end
+    -- Try OrbStack
+    local orbstack_url = get_orbstack_domain()
+    if orbstack_url then
+        return orbstack_url
+    end
+    -- Fallback
+    return 'http://localhost'
+end
+
 -- Get Sail services
 function M.get_services(callback)
     if not M.is_sail_available() then
@@ -218,9 +245,11 @@ function M.status()
         return
     end
 
+    local url = get_sail_url()
+
     M.is_sail_running(function(is_running)
         if is_running then
-            vim.notify('Laravel Sail is running ✅', vim.log.levels.INFO)
+            vim.notify('Laravel Sail is running ✅\nOpen: ' .. url, vim.log.levels.INFO)
 
             -- Show running services
             M.get_services(function(services)

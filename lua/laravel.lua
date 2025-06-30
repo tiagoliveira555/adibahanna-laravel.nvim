@@ -3,12 +3,13 @@ local M = {}
 
 -- Default configuration
 local default_config = {
-    notifications = true,   -- Enable/disable Laravel.nvim notifications
-    debug = false,          -- Enable/disable debug error notifications
-    keymaps = true,         -- Enable/disable Laravel.nvim keymaps
+    notifications = true,         -- Enable/disable Laravel.nvim notifications
+    debug = false,                -- Enable/disable debug error notifications
+    keymaps = true,               -- Enable/disable Laravel.nvim keymaps
     sail = {
-        enabled = true,     -- Enable/disable Laravel Sail integration
-        auto_detect = true, -- Auto-detect Sail usage in project
+        enabled = true,           -- Enable/disable Laravel Sail integration
+        auto_detect = true,       -- Auto-detect Sail usage in project
+        url = 'http://localhost', -- URL to open when using SailOpen command
     },
 }
 

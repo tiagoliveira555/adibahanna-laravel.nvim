@@ -157,6 +157,10 @@ local function setup_laravel_keymaps()
                 vim.cmd('SailLogs')
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: View logs' }))
 
+            vim.keymap.set('n', '<leader>Lso', function()
+                vim.cmd('SailOpen')
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: Open in browser' }))
+
             -- Manual completion trigger
             vim.keymap.set('i', '<C-x><C-l>', function()
                 local line = vim.fn.getline('.')

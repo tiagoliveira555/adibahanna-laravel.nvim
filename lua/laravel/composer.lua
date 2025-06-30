@@ -62,6 +62,8 @@ local function get_composer_commands()
     end
 
     local root = get_project_root()
+
+    -- Try Sail if available, but fall back gracefully if containers aren't running
     local composer_cmd = sail.wrap_command('composer list --format=txt')
     local cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. composer_cmd
 
@@ -95,6 +97,39 @@ local function get_composer_commands()
 
         return commands
     else
+        -- If Sail command failed, try direct composer execution silently
+        if composer_cmd:match('sail') then
+            local direct_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && composer list --format=txt'
+            local direct_output = vim.fn.system(direct_cmd)
+            if vim.v.shell_error == 0 then
+                local commands = parse_composer_list(direct_output)
+
+                -- Add common commands
+                local common_commands = {
+                    'install', 'update', 'require', 'remove', 'dump-autoload', 'dumpautoload',
+                    'show', 'outdated', 'validate', 'status', 'self-update', 'clear-cache',
+                    'diagnose', 'why', 'why-not', 'depends', 'prohibits'
+                }
+
+                for _, common_cmd in ipairs(common_commands) do
+                    local found = false
+                    for _, cmd in ipairs(commands) do
+                        if cmd == common_cmd then
+                            found = true
+                            break
+                        end
+                    end
+                    if not found then
+                        commands[#commands + 1] = common_cmd
+                    end
+                end
+
+                composer_cache.commands = commands
+                cache_timestamp = current_time
+                return commands
+            end
+        end
+
         -- Return common commands as fallback
         local fallback_commands = {
             'install', 'update', 'require', 'remove', 'dump-autoload', 'dumpautoload',
@@ -118,6 +153,12 @@ function M.run_command(args)
 
     -- Open terminal and run command
     local terminal_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. composer_cmd
+
+    -- If using Sail, add fallback command in case containers aren't running
+    if composer_cmd:match('sail') then
+        local fallback_cmd = 'composer ' .. (args or '')
+        terminal_cmd = terminal_cmd .. ' || ' .. fallback_cmd
+    end
 
     -- Create a new split and run the command
     vim.cmd('split')
@@ -188,8 +229,22 @@ function M.run_command_silent(cmd, callback)
 
     Job.run(full_cmd, {
         on_complete = function(success, output)
-            if callback then
-                callback(success, output)
+            if success then
+                if callback then callback(success, output) end
+            else
+                -- If Sail command failed, try direct composer execution
+                if composer_cmd:match('sail') then
+                    local direct_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && composer ' .. cmd
+                    Job.run(direct_cmd, {
+                        on_complete = function(direct_success, direct_output)
+                            if callback then
+                                callback(direct_success, direct_output)
+                            end
+                        end
+                    })
+                else
+                    if callback then callback(success, output) end
+                end
             end
         end
     })
