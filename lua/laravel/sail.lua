@@ -298,4 +298,46 @@ function M.setup()
     end
 end
 
+-- Open the Sail app in the default browser
+function M.open()
+    if not M.is_sail_available() then
+        vim.notify('Laravel Sail not available. Ensure docker-compose.yml and vendor/bin/sail exist.',
+            vim.log.levels.ERROR)
+        return
+    end
+
+    local function get_sail_url()
+        if _G.laravel_nvim.config.sail and _G.laravel_nvim.config.sail.url then
+            return _G.laravel_nvim.config.sail.url
+        end
+        local orbstack_url = get_orbstack_domain()
+        if orbstack_url then
+            return orbstack_url
+        end
+        return 'http://localhost'
+    end
+
+    local url = get_sail_url()
+    if not url or url == '' then
+        vim.notify('Could not determine Sail app URL.', vim.log.levels.ERROR)
+        return
+    end
+
+    -- Use macOS 'open', Linux 'xdg-open', Windows 'start'
+    local open_cmd
+    if vim.fn.has('mac') == 1 then
+        open_cmd = 'open ' .. vim.fn.shellescape(url)
+    elseif vim.fn.has('unix') == 1 then
+        open_cmd = 'xdg-open ' .. vim.fn.shellescape(url)
+    elseif vim.fn.has('win32') == 1 then
+        open_cmd = 'start ' .. vim.fn.shellescape(url)
+    else
+        vim.notify('Unsupported OS for opening browser.', vim.log.levels.ERROR)
+        return
+    end
+
+    Job.run(open_cmd)
+    vim.notify('Opening Sail app in browser: ' .. url, vim.log.levels.INFO)
+end
+
 return M

@@ -788,6 +788,26 @@ local function setup_commands()
             vim.notify("Laravel Sail not detected", vim.log.levels.INFO)
         end
     end, { desc = 'Check Laravel.nvim status' })
+
+    vim.api.nvim_create_user_command('SailStop', function(opts)
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').run_command('stop')
+    end, {
+        desc = 'Stop all Sail containers (docker stop)',
+    })
+
+    vim.api.nvim_create_user_command('SailOpen', function()
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').open()
+    end, {
+        desc = 'Open Laravel Sail app in browser'
+    })
 end
 
 
