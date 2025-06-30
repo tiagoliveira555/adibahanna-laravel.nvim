@@ -509,72 +509,85 @@ end
 
 -- Setup function
 function M.setup()
-    -- Add route-specific keymaps in route files
+    -- Add route-specific keymaps in route files with deferred setup
     vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
         pattern = '*/routes/*.php',
         callback = function()
-            vim.keymap.set('n', 'gd', function()
-                -- First: check for Inertia or view helper call on the current line
-                local line = vim.fn.getline('.')
-                local view_name = nil
-                local patterns = {
-                    "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]", -- Static call
-                    "inertia%s*%(%s*['\"]([^'\"]+)['\"]",         -- Helper function (lower-case)
-                    "view%s*%(%s*['\"]([^'\"]+)['\"]",            -- Classic view()
-                }
-
-                for _, pat in ipairs(patterns) do
-                    view_name = line:match(pat)
-                    if view_name then break end
-                end
-
-                -- Try again with case-insensitive search
-                if not view_name or view_name == '' then
-                    local lower = line:lower()
-                    local patterns_lower = {
-                        "inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",
-                        "inertia%s*%(%s*['\"]([^'\"]+)['\"]",
-                        "view%s*%(%s*['\"]([^'\"]+)['\"]",
+            -- Defer to ensure this runs after other autocmds
+            vim.defer_fn(function()
+                vim.keymap.set('n', 'gd', function()
+                    -- First: check for Inertia or view helper call on the current line
+                    local line = vim.fn.getline('.')
+                    local view_name = nil
+                    local patterns = {
+                        "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]", -- Static call
+                        "inertia%s*%(%s*['\"]([^'\"]+)['\"]",         -- Helper function (lower-case)
+                        "view%s*%(%s*['\"]([^'\"]+)['\"]",            -- Classic view()
                     }
-                    for _, pat in ipairs(patterns_lower) do
-                        local match_lower = lower:match(pat)
-                        if match_lower then
-                            view_name = match_lower
-                            break
-                        end
+
+                    for _, pat in ipairs(patterns) do
+                        view_name = line:match(pat)
+                        if view_name then break end
                     end
-                end
 
-                if view_name and view_name ~= '' then
-                    require('laravel.navigate').goto_view(view_name)
-                    return
-                end
-
-                -- Otherwise fall back to route definition logic
-                local route_info = M.find_route_at_cursor()
-                if route_info and route_info.name then
-                    get_routes(function(routes)
-                        for _, route in ipairs(routes) do
-                            if route.name == route_info.name then
-                                M.navigate_to_route_definition(route)
-                                return
+                    -- Try again with case-insensitive search
+                    if not view_name or view_name == '' then
+                        local lower = line:lower()
+                        local patterns_lower = {
+                            "inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",
+                            "inertia%s*%(%s*['\"]([^'\"]+)['\"]",
+                            "view%s*%(%s*['\"]([^'\"]+)['\"]",
+                        }
+                        for _, pat in ipairs(patterns_lower) do
+                            local match_lower = lower:match(pat)
+                            if match_lower then
+                                view_name = match_lower
+                                break
                             end
                         end
-                        ui.warn('Route definition not found')
-                    end)
-                    return
-                end
+                    end
 
-                -- Last fallback: LSP definition
-                if vim.lsp.buf.definition then
-                    vim.lsp.buf.definition()
-                else
-                    ui.warn('No view, route, or LSP definition found')
-                end
-            end, {
-                buffer = true,
-                desc = 'Go to route definition or LSP definition'
-            })
+                    if view_name and view_name ~= '' then
+                        require('laravel.navigate').goto_view(view_name)
+                        return
+                    end
+
+                    -- Second: check for other Laravel navigation contexts (to_route, route, etc.)
+                    local navigate = require('laravel.navigate')
+                    if navigate.is_laravel_navigation_context() then
+                        -- This is a Laravel-specific context, try Laravel navigation
+                        local success = pcall(navigate.goto_laravel_string)
+                        if success then
+                            return -- Laravel navigation succeeded
+                        end
+                    end
+
+                    -- Third: fall back to route definition logic for route files
+                    local route_info = M.find_route_at_cursor()
+                    if route_info and route_info.name then
+                        get_routes(function(routes)
+                            for _, route in ipairs(routes) do
+                                if route.name == route_info.name then
+                                    M.navigate_to_route_definition(route)
+                                    return
+                                end
+                            end
+                            ui.warn('Route definition not found')
+                        end)
+                        return
+                    end
+
+                    -- Last fallback: LSP definition
+                    if vim.lsp.buf.definition then
+                        vim.lsp.buf.definition()
+                    else
+                        ui.warn('No view, route, or LSP definition found')
+                    end
+                end, {
+                    buffer = true,
+                    desc = 'Laravel Routes: Go to route definition or Laravel navigation'
+                })
+            end, 100) -- Defer by 100ms
         end,
     })
 end

@@ -327,8 +327,6 @@ function M.is_laravel_navigation_context()
     local line = vim.fn.getline('.')
     local word = vim.fn.expand('<cword>')
 
-
-
     -- Check for Laravel helper functions
     local laravel_patterns = {
         -- Navigation helpers
@@ -370,8 +368,6 @@ function M.is_laravel_navigation_context()
         end
     end
 
-
-
     -- Check if we're in a quoted string that looks like a Laravel path
     local col = vim.fn.col('.')
     local before_cursor = line:sub(1, col - 1)
@@ -383,7 +379,6 @@ function M.is_laravel_navigation_context()
 
     if quote_start and quote_end then
         local full_string = before_cursor:sub(quote_start + 1) .. after_cursor:sub(1, quote_end - 1)
-
 
         -- Check if the string looks like a Laravel pattern
         if full_string:match('^[a-z]+%.[a-z]+') or -- route names like 'user.show'
@@ -401,33 +396,82 @@ function M.is_laravel_navigation_context()
     return false
 end
 
+-- Helper: Get joined lines around the cursor for multi-line function call extraction
+local function get_surrounding_lines_joined(window, num_lines)
+    window = window or 0
+    num_lines = num_lines or 3
+    local curr_line = vim.fn.line('.')
+    local start_line = math.max(1, curr_line - num_lines)
+    local end_line = curr_line + num_lines
+    local lines = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), start_line - 1, end_line, false)
+    return table.concat(lines, ' ')
+end
+
 -- Enhanced Laravel string navigation - detects context and navigates to appropriate file
 function M.goto_laravel_string()
-    local line = vim.fn.getline('.')
     local col = vim.fn.col('.')
-
     local context = nil
 
-    -- Get the completion context to understand what Laravel function we're in
-    local completion_source = require('laravel.completion_source')
-    context = completion_source.get_completion_context and
-        completion_source.get_completion_context(line, col - 1)
+    -- First try single-line extraction (more precise)
+    local line = vim.fn.getline('.')
 
+    local function extract_laravel_call(line, func_name)
+        local escaped_func = func_name:gsub('([%(%)%[%]%*%+%-%?%^%$%%::])', '%%%1')
+        local patterns = {
+            escaped_func .. "%s*%(%s*['\"]([^'\"]+)['\"]",      -- Basic pattern
+            escaped_func .. "%s*%(%s*['\"]([^'\"]*)['\"]%s*,",  -- With comma after
+            escaped_func .. "%s*%(%s*['\"]([^'\"]*)['\"]%s*%)", -- With closing paren
+        }
+        for _, pattern in ipairs(patterns) do
+            local match = line:match(pattern)
+            if match then
+                return match
+            end
+        end
+        return nil
+    end
+
+    local laravel_functions = {
+        -- Navigation helpers
+        { name = 'route',           type = 'route' },
+        { name = 'view',            type = 'view' },
+        { name = 'Inertia::render', type = 'view' },
+        { name = 'inertia',         type = 'view' },
+        { name = 'config',          type = 'config' },
+        { name = '__',              type = 'trans' },
+        { name = 'trans',           type = 'trans' },
+        { name = 'env',             type = 'env' },
+        -- URL helpers that reference routes
+        { name = 'action',          type = 'route' },
+        { name = 'to_route',        type = 'route' },
+        -- Asset helpers
+        { name = 'asset',           type = 'asset' },
+        { name = 'secure_asset',    type = 'asset' },
+        { name = 'mix',             type = 'asset' },
+    }
+
+    -- Try single-line extraction first (more precise)
+    for _, func in ipairs(laravel_functions) do
+        local match = extract_laravel_call(line, func.name)
+        if match then
+            context = { func = func.type, partial = match }
+            break
+        end
+    end
+
+    -- Fallback to multi-line extraction only if single-line fails
     if not context then
-        -- Fallback: try to detect Laravel patterns manually with full string extraction
-        local function extract_laravel_call(line, func_name)
-            -- Escape special characters in function name for pattern matching
+        local joined_lines = get_surrounding_lines_joined(0, 3)
+
+        local function extract_laravel_call_multiline(text, func_name)
             local escaped_func = func_name:gsub('([%(%)%[%]%*%+%-%?%^%$%%::])', '%%%1')
-            -- Pattern to match: func_name('string') or func_name("string")
-            -- More robust pattern that handles various whitespace and characters
             local patterns = {
                 escaped_func .. "%s*%(%s*['\"]([^'\"]+)['\"]",      -- Basic pattern
                 escaped_func .. "%s*%(%s*['\"]([^'\"]*)['\"]%s*,",  -- With comma after
                 escaped_func .. "%s*%(%s*['\"]([^'\"]*)['\"]%s*%)", -- With closing paren
             }
-
             for _, pattern in ipairs(patterns) do
-                local match = line:match(pattern)
+                local match = text:match(pattern)
                 if match then
                     return match
                 end
@@ -435,29 +479,8 @@ function M.goto_laravel_string()
             return nil
         end
 
-        local laravel_functions = {
-            -- Navigation helpers
-            { name = 'route',           type = 'route' },
-            { name = 'view',            type = 'view' },
-            { name = 'Inertia::render', type = 'view' },
-            { name = 'inertia',         type = 'view' },
-            { name = 'config',          type = 'config' },
-            { name = '__',              type = 'trans' },
-            { name = 'trans',           type = 'trans' },
-            { name = 'env',             type = 'env' },
-
-            -- URL helpers that reference routes
-            { name = 'action',          type = 'route' },
-            { name = 'to_route',        type = 'route' },
-
-            -- Asset helpers
-            { name = 'asset',           type = 'asset' },
-            { name = 'secure_asset',    type = 'asset' },
-            { name = 'mix',             type = 'asset' },
-        }
-
         for _, func in ipairs(laravel_functions) do
-            local match = extract_laravel_call(line, func.name)
+            local match = extract_laravel_call_multiline(joined_lines, func.name)
             if match then
                 context = { func = func.type, partial = match }
                 break
@@ -499,7 +522,10 @@ function M.goto_laravel_string()
                 local full_string = line:sub(quote_start_pos + 1, quote_end_pos - 1)
 
                 -- Try to guess the type based on string content and surrounding context
-                if line:match('route%s*%(') and full_string:match('^[a-z]+%.[a-z]+') then
+                if (line:match('route%s*%(') or line:match('to_route%s*%(') or line:match('action%s*%(')) and full_string:match('^[a-z]+%.[a-z]+') then
+                    context = { func = 'route', partial = full_string }
+                elseif (line:match('route%s*%(') or line:match('to_route%s*%(') or line:match('action%s*%(')) then
+                    -- If it doesn't match the dotted pattern but is in a route function, still treat as route
                     context = { func = 'route', partial = full_string }
                 elseif (line:match('view%s*%(') or line:match('Inertia%s*::%s*render%s*%(')) and (full_string:match('/') or full_string:match('%.')) then
                     context = { func = 'view', partial = full_string }
@@ -515,7 +541,6 @@ function M.goto_laravel_string()
     end
 
     if not context then
-        -- This should rarely happen since we pre-check with is_laravel_navigation_context
         return false
     end
 
@@ -559,23 +584,37 @@ function M.goto_route_definition(route_name)
         root .. '/routes/console.php'
     }
 
+    local found = false
     for _, route_file in ipairs(route_files) do
         if vim.fn.filereadable(route_file) == 1 then
             local lines = vim.fn.readfile(route_file)
-            for i, line in ipairs(lines) do
-                -- Look for named routes
-                if line:match('->name%s*%(%s*[\'"]' .. vim.pesc(route_name) .. '[\'"]') then
+            -- Join lines in windows of 3 to catch multi-line route definitions
+            local window = 3
+            for i = 1, #lines do
+                local chunk = {}
+                for j = 0, window - 1 do
+                    if lines[i + j] then
+                        table.insert(chunk, lines[i + j])
+                    end
+                end
+                local joined = table.concat(chunk, ' ')
+                local pattern = '->name%s*%(%s*[\'"]' .. vim.pesc(route_name) .. '[\'"]'
+                if joined:match(pattern) then
                     vim.cmd('edit ' .. route_file)
                     vim.fn.cursor(i, 1)
                     vim.cmd('normal! zz')
                     ui.info('Found route: ' .. route_name)
-                    return
+                    found = true
+                    break
                 end
             end
+            if found then break end
         end
     end
 
-    ui.warn('Route not found: ' .. route_name)
+    if not found then
+        ui.warn('Route not found: ' .. route_name)
+    end
 end
 
 -- Navigate to config file
