@@ -3,6 +3,7 @@ local M = {}
 
 local Job = require('laravel.utils.job')
 local ui = require('laravel.ui')
+local sail = require('laravel.sail')
 
 -- Cache for composer command list
 local composer_cache = {}
@@ -61,7 +62,8 @@ local function get_composer_commands()
     end
 
     local root = get_project_root()
-    local cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && composer list --format=txt'
+    local composer_cmd = sail.wrap_command('composer list --format=txt')
+    local cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. composer_cmd
 
     local output = vim.fn.system(cmd)
     if vim.v.shell_error == 0 then
@@ -112,10 +114,10 @@ function M.run_command(args)
     end
 
     local root = get_project_root()
-    local cmd = 'composer ' .. (args or '')
+    local composer_cmd = sail.wrap_command('composer ' .. (args or ''))
 
     -- Open terminal and run command
-    local terminal_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. cmd
+    local terminal_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. composer_cmd
 
     -- Create a new split and run the command
     vim.cmd('split')
@@ -181,7 +183,8 @@ function M.run_command_silent(cmd, callback)
     end
 
     local root = get_project_root()
-    local full_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && composer ' .. cmd
+    local composer_cmd = sail.wrap_command('composer ' .. cmd)
+    local full_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. composer_cmd
 
     Job.run(full_cmd, {
         on_complete = function(success, output)

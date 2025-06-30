@@ -26,6 +26,15 @@ local M = {}
 --   <leader>LE - Export schema diagram
 --   <leader>LA - Show architecture diagram
 --
+-- Laravel Sail commands:
+--   <leader>Lsu - Sail up (start containers)
+--   <leader>Lsd - Sail down (stop containers)
+--   <leader>Lsr - Sail restart
+--   <leader>Lst - Sail test
+--   <leader>Lss - Sail status
+--   <leader>Lsh - Sail shell
+--   <leader>Lsl - Sail logs
+--
 -- Model-specific (in model files):
 --   <leader>LR - Show model relationships
 --   <leader>LA - Show model attributes
@@ -118,6 +127,35 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>LA', function()
                 require('laravel.architecture').show_architecture_diagram()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show architecture diagram' }))
+
+            -- Laravel Sail keymaps
+            vim.keymap.set('n', '<leader>Lsu', function()
+                vim.cmd('SailUp')
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: Start containers' }))
+
+            vim.keymap.set('n', '<leader>Lsd', function()
+                vim.cmd('SailDown')
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: Stop containers' }))
+
+            vim.keymap.set('n', '<leader>Lsr', function()
+                vim.cmd('SailRestart')
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: Restart containers' }))
+
+            vim.keymap.set('n', '<leader>Lst', function()
+                vim.cmd('SailTest')
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: Run tests' }))
+
+            vim.keymap.set('n', '<leader>Lss', function()
+                vim.cmd('SailStatus')
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: Check status' }))
+
+            vim.keymap.set('n', '<leader>Lsh', function()
+                vim.cmd('SailShell')
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: Open shell' }))
+
+            vim.keymap.set('n', '<leader>Lsl', function()
+                vim.cmd('SailLogs')
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: View logs' }))
 
             -- Manual completion trigger
             vim.keymap.set('i', '<C-x><C-l>', function()

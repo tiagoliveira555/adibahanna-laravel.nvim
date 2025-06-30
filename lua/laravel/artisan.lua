@@ -3,6 +3,7 @@ local M = {}
 
 local Job = require('laravel.utils.job')
 local ui = require('laravel.ui')
+local sail = require('laravel.sail')
 
 -- Cache for artisan command list
 local artisan_cache = {}
@@ -61,7 +62,8 @@ local function get_artisan_commands()
     end
 
     local root = get_project_root()
-    local cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && php artisan list --format=txt'
+    local artisan_cmd = sail.wrap_command('php artisan list --format=txt')
+    local cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. artisan_cmd
 
     local output = vim.fn.system(cmd)
     if vim.v.shell_error == 0 then
@@ -100,10 +102,10 @@ function M.run_command(args)
     end
 
     local root = get_project_root()
-    local cmd = 'php artisan ' .. (args or '')
+    local artisan_cmd = sail.wrap_command('php artisan ' .. (args or ''))
 
     -- Open terminal and run command
-    local terminal_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. cmd
+    local terminal_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. artisan_cmd
 
     -- Create a new split and run the command
     vim.cmd('split')
@@ -164,7 +166,8 @@ function M.run_command_silent(cmd, callback)
     end
 
     local root = get_project_root()
-    local full_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && php artisan ' .. cmd
+    local artisan_cmd = sail.wrap_command('php artisan ' .. cmd)
+    local full_cmd = 'cd ' .. vim.fn.shellescape(root) .. ' && ' .. artisan_cmd
 
     Job.run(full_cmd, {
         on_complete = function(success, output)

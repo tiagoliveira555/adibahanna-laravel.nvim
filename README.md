@@ -39,6 +39,7 @@ A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea 
 
 - **Artisan integration**: Run Artisan commands with autocompletion
 - **Composer integration**: Run Composer commands with interactive package management
+- **Laravel Sail support**: Full Docker development environment integration
 - **Route visualization**: View and navigate your application routes
 - **Migration helpers**: Navigate and manage database migrations
 - **Model navigation**: Quick access to Eloquent models
@@ -94,16 +95,22 @@ require("laravel").setup({
     notifications = true, -- Enable/disable Laravel.nvim notifications (default: true)
     debug = false,        -- Enable/disable debug error notifications (default: false)
     keymaps = true,       -- Enable/disable Laravel.nvim keymaps (default: true)
+    sail = {
+        enabled = true,   -- Enable/disable Laravel Sail integration (default: true)
+        auto_detect = true, -- Auto-detect Sail usage in project (default: true)
+    },
 })
 ```
 
 ### Configuration Options
 
-| Option          | Type      | Default | Description                                              |
-| --------------- | --------- | ------- | -------------------------------------------------------- |
-| `notifications` | `boolean` | `true`  | Enable/disable Laravel project detection notifications   |
-| `debug`         | `boolean` | `false` | Enable/disable debug error notifications for completions |
-| `keymaps`       | `boolean` | `true`  | Enable/disable Laravel.nvim default keymaps              |
+| Option             | Type      | Default | Description                                              |
+| ------------------ | --------- | ------- | -------------------------------------------------------- |
+| `notifications`    | `boolean` | `true`  | Enable/disable Laravel project detection notifications   |
+| `debug`            | `boolean` | `false` | Enable/disable debug error notifications for completions |
+| `keymaps`          | `boolean` | `true`  | Enable/disable Laravel.nvim default keymaps              |
+| `sail.enabled`     | `boolean` | `true`  | Enable/disable Laravel Sail integration                  |
+| `sail.auto_detect` | `boolean` | `true`  | Auto-detect Sail usage and wrap commands                 |
 
 ### Examples
 
@@ -122,6 +129,24 @@ require("laravel").setup({
     debug = true, -- Show completion error notifications for debugging
 })
 ```
+
+**Configure Laravel Sail integration:**
+
+```lua
+require("laravel").setup({
+    sail = {
+        enabled = true,     -- Enable Sail integration (default: true)
+        auto_detect = true, -- Auto-detect when to use Sail (default: true)
+    },
+})
+```
+
+When Sail is detected in your project (presence of `docker-compose.yml` and `vendor/bin/sail`), all `Artisan` and `Composer` commands will automatically be wrapped with `./vendor/bin/sail`. For example:
+
+- `:Artisan migrate` becomes `./vendor/bin/sail artisan migrate`
+- `:Composer install` becomes `./vendor/bin/sail composer install`
+
+**All Laravel commands (including Sail commands) work globally** - you can run them from any file type (JavaScript, CSS, Markdown, etc.) within a Laravel project, not just PHP files.
 
 **Enable Laravel IDE Helper integration:**
 
@@ -461,6 +486,22 @@ The plugin will:
 | `:ComposerRemove [pkg]`  | Interactive package removal    | `:ComposerRemove phpunit/phpunit`  |
 | `:ComposerDependencies`  | Show project dependencies tree | `:ComposerDependencies`            |
 
+### Laravel Sail Commands
+
+| Command           | Description                  | Example                |
+| ----------------- | ---------------------------- | ---------------------- |
+| `:Sail [command]` | Run any Sail command         | `:Sail php --version`  |
+| `:SailUp`         | Start Sail containers        | `:SailUp -d`           |
+| `:SailDown`       | Stop Sail containers         | `:SailDown`            |
+| `:SailRestart`    | Restart Sail containers      | `:SailRestart`         |
+| `:SailTest`       | Run tests through Sail       | `:SailTest --parallel` |
+| `:SailShare`      | Share application via tunnel | `:SailShare`           |
+| `:SailShell`      | Open shell in container      | `:SailShell`           |
+| `:SailLogs`       | View container logs          | `:SailLogs`            |
+| `:SailStatus`     | Check Sail containers status | `:SailStatus`          |
+
+> **Note**: Sail commands work globally in any Laravel project, regardless of current file type. When Sail is detected, `Artisan` and `Composer` commands automatically use Sail.
+
 ### Navigation Commands
 
 | Command                     | Description                   | Example                             |
@@ -518,6 +559,13 @@ The plugin will:
 - `<leader>LS` - Show schema diagram
 - `<leader>LE` - Export schema diagram
 - `<leader>LA` - Show architecture diagram
+- `<leader>Lsu` - Sail up (start containers)
+- `<leader>Lsd` - Sail down (stop containers)
+- `<leader>Lsr` - Sail restart
+- `<leader>Lst` - Sail test
+- `<leader>Lss` - Sail status
+- `<leader>Lsh` - Sail shell
+- `<leader>Lsl` - Sail logs
 - `<C-x><C-l>` - Manual completion trigger (insert mode)
 
 ### Blade Templates (`*.blade.php`)

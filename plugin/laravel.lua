@@ -90,20 +90,14 @@ end
 local function setup_autocommands()
     local group = vim.api.nvim_create_augroup('LaravelNvim', { clear = true })
 
-    -- Initialize when entering a buffer (only if not already checked)
+    -- Initialize when entering any buffer (for global command availability)
     vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
         group = group,
-        pattern = { '*.php', '*.blade.php', 'artisan', 'composer.json' },
+        pattern = '*',
         callback = function()
             -- Only initialize if we haven't checked for Laravel project yet
-            -- and we're in a potentially PHP-related project
             if _G.laravel_nvim.project_root == nil and not _G.laravel_nvim.setup_called then
-                local buf_name = vim.api.nvim_buf_get_name(0)
-                -- Only trigger for PHP files or Laravel-specific files
-                if buf_name:match('%.php$') or buf_name:match('%.blade%.php$') or
-                    buf_name:match('artisan$') or buf_name:match('composer%.json$') then
-                    initialize_laravel()
-                end
+                initialize_laravel()
             end
         end,
     })
@@ -118,11 +112,45 @@ local function setup_autocommands()
     })
 end
 
+-- Check if in Laravel project (with fallback detection)
+local function is_in_laravel_project()
+    -- Try global state first
+    if _G.laravel_nvim and _G.laravel_nvim.is_laravel_project then
+        return true
+    end
+
+    -- Fallback: detect Laravel project directly
+    local function find_laravel_root()
+        local current_dir = vim.fn.getcwd()
+        local function check_laravel_markers(dir)
+            local markers = { 'artisan', 'composer.json' }
+            for _, marker in ipairs(markers) do
+                if vim.fn.filereadable(dir .. '/' .. marker) == 1 then
+                    return true
+                end
+            end
+            return false
+        end
+
+        -- Check current directory and parents
+        local dir = current_dir
+        while dir ~= '/' do
+            if check_laravel_markers(dir) then
+                return true
+            end
+            dir = vim.fn.fnamemodify(dir, ':h')
+        end
+        return false
+    end
+
+    return find_laravel_root()
+end
+
 -- Setup user commands
 local function setup_commands()
     -- Artisan command (always available)
     vim.api.nvim_create_user_command('Artisan', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -130,7 +158,7 @@ local function setup_commands()
     end, {
         nargs = '*',
         complete = function()
-            if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            if not is_in_laravel_project() then
                 return {}
             end
             return require('laravel.artisan').get_completions()
@@ -140,7 +168,7 @@ local function setup_commands()
 
     -- Composer command (always available)
     vim.api.nvim_create_user_command('Composer', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -148,7 +176,7 @@ local function setup_commands()
     end, {
         nargs = '*',
         complete = function()
-            if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            if not is_in_laravel_project() then
                 return {}
             end
             return require('laravel.composer').get_completions()
@@ -158,7 +186,7 @@ local function setup_commands()
 
     -- Composer require command with package suggestions
     vim.api.nvim_create_user_command('ComposerRequire', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -166,7 +194,7 @@ local function setup_commands()
     end, {
         nargs = '*',
         complete = function(arg_lead)
-            if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            if not is_in_laravel_project() then
                 return {}
             end
             return require('laravel.composer').get_require_completions(arg_lead)
@@ -176,7 +204,7 @@ local function setup_commands()
 
     -- Composer remove command with installed package selection
     vim.api.nvim_create_user_command('ComposerRemove', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -188,7 +216,7 @@ local function setup_commands()
 
     -- Show composer dependencies
     vim.api.nvim_create_user_command('ComposerDependencies', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -197,7 +225,7 @@ local function setup_commands()
 
     -- Laravel-specific navigation commands (always available)
     vim.api.nvim_create_user_command('LaravelController', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -205,7 +233,7 @@ local function setup_commands()
     end, { nargs = '?', desc = 'Navigate to Laravel controller' })
 
     vim.api.nvim_create_user_command('LaravelModel', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -213,7 +241,7 @@ local function setup_commands()
     end, { nargs = '?', desc = 'Navigate to Laravel model' })
 
     vim.api.nvim_create_user_command('LaravelView', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -222,7 +250,7 @@ local function setup_commands()
 
     -- Laravel goto definition command (equivalent to gd keymap)
     vim.api.nvim_create_user_command('LaravelGoto', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -245,7 +273,7 @@ local function setup_commands()
     end, { desc = 'Laravel-aware goto definition (same as gd)' })
 
     vim.api.nvim_create_user_command('LaravelRoute', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -253,7 +281,7 @@ local function setup_commands()
     end, { desc = 'Show Laravel routes' })
 
     vim.api.nvim_create_user_command('LaravelMake', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -261,7 +289,7 @@ local function setup_commands()
     end, {
         nargs = '*',
         complete = function(arg_lead)
-            if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+            if not is_in_laravel_project() then
                 return {}
             end
             return require('laravel.artisan').get_make_completions(arg_lead)
@@ -271,7 +299,7 @@ local function setup_commands()
 
     -- Schema diagram commands (always available)
     vim.api.nvim_create_user_command('LaravelSchema', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -279,7 +307,7 @@ local function setup_commands()
     end, { desc = 'Show Laravel database schema diagram' })
 
     vim.api.nvim_create_user_command('LaravelSchemaExport', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -288,7 +316,7 @@ local function setup_commands()
 
     -- Architecture diagram commands (always available)
     vim.api.nvim_create_user_command('LaravelArchitecture', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -297,7 +325,7 @@ local function setup_commands()
 
     -- Completion management commands (always available)
     vim.api.nvim_create_user_command('LaravelCompletions', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -328,7 +356,7 @@ local function setup_commands()
     })
 
     vim.api.nvim_create_user_command('LaravelClearCache', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -343,7 +371,7 @@ local function setup_commands()
 
     -- Laravel IDE Helper installation command
     vim.api.nvim_create_user_command('LaravelInstallIdeHelper', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -374,7 +402,7 @@ local function setup_commands()
 
     -- Remove only the generated IDE Helper files (keep package)
     vim.api.nvim_create_user_command('LaravelIdeHelperClean', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -421,7 +449,7 @@ local function setup_commands()
 
     -- Remove Laravel IDE Helper completely
     vim.api.nvim_create_user_command('LaravelRemoveIdeHelper', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -501,7 +529,7 @@ local function setup_commands()
 
     -- Check IDE Helper status command
     vim.api.nvim_create_user_command('LaravelIdeHelperCheck', function()
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -552,7 +580,7 @@ local function setup_commands()
 
     -- IDE Helper management commands
     vim.api.nvim_create_user_command('LaravelIdeHelper', function(opts)
-        if not (_G.laravel_nvim and _G.laravel_nvim.is_laravel_project) then
+        if not is_in_laravel_project() then
             vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
             return
         end
@@ -605,6 +633,132 @@ local function setup_commands()
         desc = 'Generate Laravel IDE Helper files'
     })
 
+    -- Laravel Sail Commands
+    vim.api.nvim_create_user_command('Sail', function(opts)
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').run_command(opts.args)
+    end, {
+        nargs = '*',
+        complete = function(arg_lead, cmd_line, cursor_pos)
+            if not is_in_laravel_project() then
+                return {}
+            end
+
+            -- Common Sail commands for autocompletion
+            local sail_commands = {
+                'up', 'down', 'stop', 'restart',
+                'artisan', 'composer', 'php', 'node', 'npm', 'yarn',
+                'shell', 'root-shell',
+                'logs', 'ps', 'exec',
+                'test', 'dusk', 'tinker',
+                'share', 'build', 'rebuild'
+            }
+
+            local matches = {}
+            for _, cmd in ipairs(sail_commands) do
+                if not arg_lead or cmd:match('^' .. vim.pesc(arg_lead)) then
+                    matches[#matches + 1] = cmd
+                end
+            end
+
+            return matches
+        end,
+        desc = 'Run Laravel Sail commands'
+    })
+
+    vim.api.nvim_create_user_command('SailUp', function(opts)
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').up(opts.args)
+    end, {
+        nargs = '*',
+        desc = 'Start Laravel Sail containers'
+    })
+
+    vim.api.nvim_create_user_command('SailDown', function(opts)
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').down(opts.args)
+    end, {
+        nargs = '*',
+        desc = 'Stop Laravel Sail containers'
+    })
+
+    vim.api.nvim_create_user_command('SailRestart', function()
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').restart()
+    end, { desc = 'Restart Laravel Sail containers' })
+
+    vim.api.nvim_create_user_command('SailTest', function(opts)
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').test(opts.args)
+    end, {
+        nargs = '*',
+        desc = 'Run tests through Laravel Sail'
+    })
+
+    vim.api.nvim_create_user_command('SailShare', function(opts)
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').share(opts.args)
+    end, {
+        nargs = '?',
+        desc = 'Share Laravel application via Sail'
+    })
+
+    vim.api.nvim_create_user_command('SailShell', function(opts)
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        if opts.args and opts.args ~= '' then
+            require('laravel.sail').shell(opts.args)
+        else
+            require('laravel.sail').select_service_and_run('shell')
+        end
+    end, {
+        nargs = '?',
+        desc = 'Open shell in Laravel Sail container'
+    })
+
+    vim.api.nvim_create_user_command('SailLogs', function(opts)
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        if opts.args and opts.args ~= '' then
+            require('laravel.sail').logs(opts.args)
+        else
+            require('laravel.sail').select_service_and_run('logs')
+        end
+    end, {
+        nargs = '?',
+        desc = 'View Laravel Sail container logs'
+    })
+
+    vim.api.nvim_create_user_command('SailStatus', function()
+        if not is_in_laravel_project() then
+            vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+            return
+        end
+        require('laravel.sail').status()
+    end, { desc = 'Check Laravel Sail status' })
+
     -- Status command (always available for debugging)
     vim.api.nvim_create_user_command('LaravelStatus', function()
         local is_laravel = _G.laravel_nvim.is_laravel_project
@@ -625,6 +779,14 @@ local function setup_commands()
                 vim.notify("Artisan file not found at: " .. artisan_path, vim.log.levels.WARN)
             end
         end
+
+        -- Check Sail status
+        local sail_available = require('laravel.sail').is_sail_available()
+        if sail_available then
+            vim.notify("Laravel Sail is available 🐳", vim.log.levels.INFO)
+        else
+            vim.notify("Laravel Sail not detected", vim.log.levels.INFO)
+        end
     end, { desc = 'Check Laravel.nvim status' })
 end
 
@@ -636,7 +798,7 @@ setup_commands()
 -- Setup autocommands (initialization will happen when setup() is called or on first buffer)
 setup_autocommands()
 
--- Only initialize if setup() hasn't been called (for non-lazy loading scenarios)
+-- Initialize Laravel detection immediately for global commands
 vim.defer_fn(function()
     if not _G.laravel_nvim.setup_called then
         initialize_laravel()

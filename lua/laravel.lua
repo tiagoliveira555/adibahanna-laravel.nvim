@@ -3,9 +3,13 @@ local M = {}
 
 -- Default configuration
 local default_config = {
-    notifications = true, -- Enable/disable Laravel.nvim notifications
-    debug = false,        -- Enable/disable debug error notifications
-    keymaps = true,       -- Enable/disable Laravel.nvim keymaps
+    notifications = true,   -- Enable/disable Laravel.nvim notifications
+    debug = false,          -- Enable/disable debug error notifications
+    keymaps = true,         -- Enable/disable Laravel.nvim keymaps
+    sail = {
+        enabled = true,     -- Enable/disable Laravel Sail integration
+        auto_detect = true, -- Auto-detect Sail usage in project
+    },
 }
 
 -- Global state
@@ -71,6 +75,7 @@ function M.setup(config)
         require('laravel.completions').setup()
         require('laravel.blink_source').setup()
         require('laravel.ide_helper').setup()
+        require('laravel.sail').setup()
     else
         _G.laravel_nvim.is_laravel_project = false
         -- Show non-Laravel notification if enabled
