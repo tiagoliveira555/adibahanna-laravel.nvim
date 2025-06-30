@@ -415,6 +415,16 @@ function M.goto_laravel_string()
     -- First try single-line extraction (more precise)
     local line = vim.fn.getline('.')
 
+    -- Special handling for Route::inertia syntax (view name is second parameter)
+    local route_inertia_pattern = "Route::inertia%s*%(%s*['\"][^'\"]*['\"]%s*,%s*['\"]([^'\"]+)['\"]"
+    local route_inertia_match = line:match(route_inertia_pattern)
+    if route_inertia_match then
+        context = { func = 'view', partial = route_inertia_match }
+        -- Early return to prevent other patterns from overriding this
+        M.goto_view(context.partial)
+        return true
+    end
+
     local function extract_laravel_call(line, func_name)
         local escaped_func = func_name:gsub('([%(%)%[%]%*%+%-%?%^%$%%::])', '%%%1')
         local patterns = {
@@ -527,7 +537,7 @@ function M.goto_laravel_string()
                 elseif (line:match('route%s*%(') or line:match('to_route%s*%(') or line:match('action%s*%(')) then
                     -- If it doesn't match the dotted pattern but is in a route function, still treat as route
                     context = { func = 'route', partial = full_string }
-                elseif (line:match('view%s*%(') or line:match('Inertia%s*::%s*render%s*%(')) and (full_string:match('/') or full_string:match('%.')) then
+                elseif (line:match('view%s*%(') or line:match('Inertia%s*::%s*render%s*%(') or line:match('Route%s*::%s*inertia%s*%(')) and (full_string:match('/') or full_string:match('%.')) then
                     context = { func = 'view', partial = full_string }
                 elseif line:match('config%s*%(') and full_string:match('%.') then
                     context = { func = 'config', partial = full_string }

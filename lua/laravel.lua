@@ -84,6 +84,68 @@ function M.setup(config)
             vim.notify("Laravel.nvim: Not in Laravel project - components not loaded", vim.log.levels.INFO)
         end
     end
+
+    -- Add command to manually set Laravel project root
+    vim.api.nvim_create_user_command('LaravelSetRoot', function(opts)
+        local new_root = opts.args
+        if new_root == '' then
+            new_root = vim.fn.input('Laravel project root: ', vim.fn.getcwd(), 'dir')
+        end
+
+        if new_root == '' then
+            return
+        end
+
+        -- Expand path and check if it exists
+        new_root = vim.fn.expand(new_root)
+        if vim.fn.isdirectory(new_root) == 0 then
+            vim.notify('Directory does not exist: ' .. new_root, vim.log.levels.ERROR)
+            return
+        end
+
+        -- Check if it looks like a Laravel project
+        local laravel_markers = { 'artisan', 'composer.json', 'app/Http/Kernel.php' }
+        local is_laravel = false
+        for _, marker in ipairs(laravel_markers) do
+            if vim.fn.filereadable(new_root .. '/' .. marker) == 1 then
+                is_laravel = true
+                break
+            end
+        end
+
+        if not is_laravel then
+            vim.ui.input({
+                prompt = 'Directory does not look like a Laravel project. Set anyway? (y/N): ',
+                default = 'n'
+            }, function(input)
+                if input and (input:lower() == 'y' or input:lower() == 'yes') then
+                    _G.laravel_nvim.project_root = new_root
+                    _G.laravel_nvim.is_laravel_project = true
+                    vim.notify('Laravel project root set to: ' .. new_root, vim.log.levels.INFO)
+                end
+            end)
+        else
+            _G.laravel_nvim.project_root = new_root
+            _G.laravel_nvim.is_laravel_project = true
+            vim.notify('Laravel project root set to: ' .. new_root, vim.log.levels.INFO)
+        end
+    end, {
+        nargs = '?',
+        complete = 'dir',
+        desc = 'Manually set the Laravel project root directory'
+    })
+
+    -- Add command to show current Laravel project info
+    vim.api.nvim_create_user_command('LaravelStatus', function()
+        print("=== Laravel.nvim Status ===")
+        print("Setup called: " .. (_G.laravel_nvim.setup_called and "YES" or "NO"))
+        print("Project root: " .. (_G.laravel_nvim.project_root or "NOT SET"))
+        print("Is Laravel project: " .. (_G.laravel_nvim.is_laravel_project and "YES" or "NO"))
+        print("Current working directory: " .. vim.fn.getcwd())
+        print("=== End Status ===")
+    end, {
+        desc = 'Show Laravel.nvim status and configuration'
+    })
 end
 
 return M

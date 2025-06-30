@@ -520,9 +520,10 @@ function M.setup()
                     local line = vim.fn.getline('.')
                     local view_name = nil
                     local patterns = {
-                        "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]", -- Static call
-                        "inertia%s*%(%s*['\"]([^'\"]+)['\"]",         -- Helper function (lower-case)
-                        "view%s*%(%s*['\"]([^'\"]+)['\"]",            -- Classic view()
+                        "Route::inertia%s*%(%s*['\"][^'\"]*['\"]%s*,%s*['\"]([^'\"]+)['\"]", -- Route::inertia('/path', 'ViewName')
+                        "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",                        -- Static call
+                        "inertia%s*%(%s*['\"]([^'\"]+)['\"]",                                -- Helper function (lower-case)
+                        "view%s*%(%s*['\"]([^'\"]+)['\"]",                                   -- Classic view()
                     }
 
                     for _, pat in ipairs(patterns) do
@@ -534,6 +535,7 @@ function M.setup()
                     if not view_name or view_name == '' then
                         local lower = line:lower()
                         local patterns_lower = {
+                            "route::inertia%s*%(%s*['\"][^'\"]*['\"]%s*,%s*['\"]([^'\"]+)['\"]", -- route::inertia('/path', 'ViewName')
                             "inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",
                             "inertia%s*%(%s*['\"]([^'\"]+)['\"]",
                             "view%s*%(%s*['\"]([^'\"]+)['\"]",

@@ -22,6 +22,7 @@ local function get_completion_context(line, col)
         { name = 'env',             func = 'env' },
         { name = 'Inertia::render', func = 'view' },
         { name = 'inertia',         func = 'view' },
+        { name = 'Route::inertia',  func = 'view' },
         { name = 'app',             func = 'app' },
         { name = 'resolve',         func = 'app' },
     }
@@ -68,16 +69,17 @@ local function get_completion_context(line, col)
 
     -- Fallback: use the old method for partial matches during typing
     local patterns = {
-        { pattern = "route%s*%(%s*['\"]([^'\"]*)",           func = 'route' },
-        { pattern = "view%s*%(%s*['\"]([^'\"]*)",            func = 'view' },
-        { pattern = "config%s*%(%s*['\"]([^'\"]*)",          func = 'config' },
-        { pattern = "__%s*%(%s*['\"]([^'\"]*)",              func = '__' },
-        { pattern = "trans%s*%(%s*['\"]([^'\"]*)",           func = 'trans' },
-        { pattern = "env%s*%(%s*['\"]([^'\"]*)",             func = 'env' },
-        { pattern = "app%s*%(%s*['\"]([^'\"]*)",             func = 'app' },
-        { pattern = "resolve%s*%(%s*['\"]([^'\"]*)",         func = 'app' },
-        { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]*)", func = 'view' },
-        { pattern = "inertia%s*%(%s*['\"]([^'\"]*)",         func = 'view' },
+        { pattern = "route%s*%(%s*['\"]([^'\"]*)",                                        func = 'route' },
+        { pattern = "view%s*%(%s*['\"]([^'\"]*)",                                         func = 'view' },
+        { pattern = "config%s*%(%s*['\"]([^'\"]*)",                                       func = 'config' },
+        { pattern = "__%s*%(%s*['\"]([^'\"]*)",                                           func = '__' },
+        { pattern = "trans%s*%(%s*['\"]([^'\"]*)",                                        func = 'trans' },
+        { pattern = "env%s*%(%s*['\"]([^'\"]*)",                                          func = 'env' },
+        { pattern = "app%s*%(%s*['\"]([^'\"]*)",                                          func = 'app' },
+        { pattern = "resolve%s*%(%s*['\"]([^'\"]*)",                                      func = 'app' },
+        { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]*)",                              func = 'view' },
+        { pattern = "inertia%s*%(%s*['\"]([^'\"]*)",                                      func = 'view' },
+        { pattern = "Route%s*::%s*inertia%s*%(%s*['\"][^'\"]*['\"]%s*,%s*['\"]([^'\"]*)", func = 'view' },
     }
 
     for _, p in ipairs(patterns) do
