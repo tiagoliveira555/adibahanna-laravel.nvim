@@ -808,6 +808,27 @@ local function setup_commands()
     end, {
         desc = 'Open Laravel Sail app in browser'
     })
+
+    -- Debug commands for treesitter navigation
+    -- vim.api.nvim_create_user_command('LaravelDebugTreesitter', function()
+    --     if not is_in_laravel_project() then
+    --         vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+    --         return
+    --     end
+    --     require('laravel.navigate').debug_treesitter_context()
+    -- end, {
+    --     desc = 'Debug treesitter parsing for Laravel navigation'
+    -- })
+
+    -- vim.api.nvim_create_user_command('LaravelCompareParsing', function()
+    --     if not is_in_laravel_project() then
+    --         vim.notify('Not in a Laravel project', vim.log.levels.ERROR)
+    --         return
+    --     end
+    --     require('laravel.navigate').compare_parsing_methods()
+    -- end, {
+    --     desc = 'Compare treesitter vs regex parsing methods'
+    -- })
 end
 
 
