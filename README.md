@@ -10,7 +10,13 @@ This plugin is currently in active development, and you may encounter bugs. Plea
 
 ### 🧭 Smart Navigation
 
-- **Go to Definition (`gd`)**: Navigate to Laravel resources with context awareness
+- **Go to Definition (`gd`)**: Navigate to Laravel resources with intelligent context awareness
+  - **Treesitter-powered parsing**: Uses Neovim's treesitter for accurate AST-based code analysis
+  - **Intelligent fallback**: Gracefully falls back to regex patterns when treesitter is unavailable
+  - **Multi-line support**: Handles complex chained method calls and multi-line function definitions
+  - **40+ Laravel function patterns**: Comprehensive support for Laravel helpers and facades
+  
+  **Supported navigation targets:**
   - Routes: `route('dashboard')` → routes/web.php
   - Views: `view('users.index')` → resources/views/users/index.blade.php
   - Inertia: `Inertia::render('Dashboard')` → resources/js/Pages/Dashboard.tsx
@@ -18,6 +24,8 @@ This plugin is currently in active development, and you may encounter bugs. Plea
   - Translations: `__('auth.failed')` → lang/en/auth.php
   - Environment variables: `env('APP_NAME')` → .env file
   - Controllers: `UserController::class` → app/Http/Controllers/UserController.php
+  - Static method calls: `Route::get()`, `Inertia::render()`, `Config::get()`
+  - Method chaining: `->name()`, `->middleware()`, `->where()`
   - Laravel globals: `auth()`, `request()`, `session()`, etc.
 
 ### 🔍 Intelligent Autocompletion
@@ -89,6 +97,28 @@ use {
     end
 }
 ```
+
+## 📋 Requirements
+
+### Treesitter Support (Recommended)
+
+For optimal navigation accuracy, this plugin leverages **Neovim's treesitter** for intelligent PHP code parsing:
+
+- **Treesitter PHP parser**: Install via `:TSInstall php` for best navigation experience
+- **Automatic fallback**: Plugin gracefully falls back to regex parsing if treesitter is unavailable
+- **Enhanced accuracy**: Treesitter provides AST-based parsing for precise function call detection
+- **Multi-line support**: Handles complex Laravel patterns across multiple lines
+
+**Quick setup:**
+```vim
+" Install PHP treesitter parser
+:TSInstall php
+
+" Verify installation
+:TSInstallInfo php
+```
+
+> **Note**: While treesitter is highly recommended for the best experience, the plugin will work without it using regex-based parsing as a fallback.
 
 ## ⚙️ Configuration
 
