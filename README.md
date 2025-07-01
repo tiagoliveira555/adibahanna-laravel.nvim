@@ -2,6 +2,10 @@
 
 A comprehensive Laravel development plugin for Neovim, inspired by Laravel Idea for PhpStorm. This plugin provides intelligent navigation, autocompletion, and development tools specifically designed for Laravel projects.
 
+## ⚠️ Important Notice
+
+This plugin is currently in active development, and you may encounter bugs. Please report any issues you encounter.
+
 ## ✨ Features
 
 ### 🧭 Smart Navigation
