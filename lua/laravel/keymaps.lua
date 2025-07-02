@@ -161,6 +161,31 @@ local function setup_laravel_keymaps()
                 vim.cmd('SailOpen')
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel Sail: Open in browser' }))
 
+            -- Laravel Dump Viewer keymaps
+            vim.keymap.set('n', '<leader>Ld', function()
+                require('laravel.dump').open()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Open dump viewer' }))
+
+            vim.keymap.set('n', '<leader>LDi', function()
+                require('laravel.dump').install()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Install dump service provider' }))
+
+            vim.keymap.set('n', '<leader>LDe', function()
+                require('laravel.dump').enable()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Install and enable dump capture' }))
+
+            vim.keymap.set('n', '<leader>LDd', function()
+                require('laravel.dump').disable()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Disable dump capture' }))
+
+            vim.keymap.set('n', '<leader>LDt', function()
+                require('laravel.dump').toggle()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Toggle dump capture' }))
+
+            vim.keymap.set('n', '<leader>LDc', function()
+                require('laravel.dump').clear()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Clear dumps' }))
+
             -- Manual completion trigger
             vim.keymap.set('i', '<C-x><C-l>', function()
                 local line = vim.fn.getline('.')

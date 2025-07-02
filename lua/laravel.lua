@@ -77,6 +77,7 @@ function M.setup(config)
         require('laravel.blink_source').setup()
         require('laravel.ide_helper').setup()
         require('laravel.sail').setup()
+        require('laravel.dump').setup()
     else
         _G.laravel_nvim.is_laravel_project = false
         -- Show non-Laravel notification if enabled
@@ -145,6 +146,57 @@ function M.setup(config)
         print("=== End Status ===")
     end, {
         desc = 'Show Laravel.nvim status and configuration'
+    })
+
+    -- Dump viewer commands
+    vim.api.nvim_create_user_command('LaravelDumps', function()
+        require('laravel.dump').open()
+    end, {
+        desc = 'Open Laravel dump viewer'
+    })
+
+    vim.api.nvim_create_user_command('LaravelDumpsInstall', function()
+        require('laravel.dump').install()
+    end, {
+        desc = 'Install Laravel dump service provider'
+    })
+
+    vim.api.nvim_create_user_command('LaravelDumpsEnable', function()
+        require('laravel.dump').enable()
+    end, {
+        desc = 'Install service provider and enable Laravel dump capture'
+    })
+
+    vim.api.nvim_create_user_command('LaravelDumpsDisable', function()
+        require('laravel.dump').disable()
+    end, {
+        desc = 'Disable Laravel dump capture'
+    })
+
+    vim.api.nvim_create_user_command('LaravelDumpsToggle', function()
+        require('laravel.dump').toggle()
+    end, {
+        desc = 'Toggle Laravel dump capture'
+    })
+
+    vim.api.nvim_create_user_command('LaravelDumpsClear', function()
+        require('laravel.dump').clear()
+    end, {
+        desc = 'Clear all captured dumps'
+    })
+
+    -- Dump search commands
+    vim.api.nvim_create_user_command('LaravelDumpsSearch', function(opts)
+        require('laravel.dump').search(opts.args)
+    end, {
+        nargs = '?',
+        desc = 'Search dumps (content, file, type)'
+    })
+
+    vim.api.nvim_create_user_command('LaravelDumpsClearSearch', function()
+        require('laravel.dump').clear_search()
+    end, {
+        desc = 'Clear active search'
     })
 end
 

@@ -58,6 +58,211 @@ This plugin is currently in active development, and you may encounter bugs. Plea
 - **Schema diagrams**: Visualize your database structure
 - **Architecture diagrams**: See your application structure
 
+### Laravel Dump Viewer
+
+The dump viewer captures all your application's `dump()` and `dd()` calls and displays them in a beautifully formatted popup window.
+
+![Laravel Dump Viewer](/assets/images/dumpviewer.png)
+
+#### Features
+
+- **Automatic capture**: All `dump()` and `dd()` calls are automatically captured
+- **Real-time updates**: New dumps appear instantly in the viewer
+- **Beautiful formatting**: Syntax highlighting and proper indentation
+- **File location tracking**: See exactly where each dump originated
+- **Timestamp display**: Know when each dump was executed
+- **Auto-scroll**: Automatically scroll to the latest dumps
+- **Search**: Easily find specific dumps
+
+#### Usage
+
+1. **Enable dump capture:**
+   ```vim
+   :LaravelDumpsEnable
+   ```
+
+2. **Open the dump viewer:**
+   ```vim
+   :LaravelDumps
+   ```
+   Or use the keymap: `<leader>Ld`
+
+3. **Use dump() in your Laravel code:**
+   ```php
+   Route::get('/test', function () {
+       dump('Hello from Laravel!');
+       dump(['key' => 'value', 'array' => [1, 2, 3]]);
+       dump(User::first());
+       
+       return view('welcome');
+   });
+   ```
+
+4. **View dumps in real-time** in the popup window
+
+#### Commands
+
+- `:LaravelDumps` - Open dump viewer
+- `:LaravelDumpsInstall` - Install service provider (setup only)
+- `:LaravelDumpsEnable` - Install service provider and enable dump capture
+- `:LaravelDumpsDisable` - Disable dump capture  
+- `:LaravelDumpsToggle` - Toggle dump capture
+- `:LaravelDumpsClear` - Clear all captured dumps
+
+#### Keymaps
+
+All keymaps use the `<leader>L` prefix (where `<leader>` is typically `\` or `,`):
+
+- `<leader>Ld` - Open dump viewer
+- `<leader>LDi` - Install dump service provider
+- `<leader>LDe` - Install and enable dump capture
+- `<leader>LDd` - Disable dump capture
+- `<leader>LDt` - Toggle dump capture
+- `<leader>LDc` - Clear dumps
+
+#### Dump Viewer Window Controls
+
+When the dump viewer is open:
+
+- `q` or `<Esc>` - Close window
+- `c` - Clear all dumps
+- `s` - Toggle auto-scroll
+- `r` - Refresh content
+
+#### Setup
+
+**🛠️ Manual setup required for first-time use**
+
+To get started with the dump viewer, you need to install the Laravel service provider:
+
+**Option 1: Install and enable in one step**
+```vim
+:LaravelDumpsEnable
+```
+
+**Option 2: Install first, enable later**
+```vim
+:LaravelDumpsInstall   " Just creates the service provider
+:LaravelDumpsEnable    " Enable dump capture when ready
+```
+
+When you install, the plugin will:
+
+1. **🚀 Create** `app/Providers/NvimDumpServiceProvider.php`
+2. **🔧 Auto-register** the service provider in your Laravel application:
+   - **Laravel 11+ (current)**: Adds to `bootstrap/app.php` using `withProviders()`  
+   - **Laravel 10 (legacy)**: Adds to `config/app.php` in the `providers` array
+3. **✅ Ready to go!** Start using `dump()` calls
+
+#### Troubleshooting Setup
+
+**🔍 Not seeing dumps? Check your Laravel configuration:**
+
+1. **Verify service provider exists:**
+   ```bash
+   ls app/Providers/NvimDumpServiceProvider.php
+   ```
+
+2. **Check if it's registered in your Laravel app:**
+   
+   **Laravel 12/11** - Look in `bootstrap/app.php`:
+   ```php
+   ->withProviders([
+       App\Providers\NvimDumpServiceProvider::class,  // ← Should be here
+   ])
+   ```
+   
+   **Laravel 10** - Look in `config/app.php`:
+   ```php
+   'providers' => [
+       // ... other providers ...
+       App\Providers\NvimDumpServiceProvider::class,  // ← Should be here
+   ],
+   ```
+
+3. **Clear Laravel caches:**
+   ```bash
+   php artisan config:cache
+   ```
+
+4. **Test with a simple dump:**
+   ```php
+   // Add to routes/web.php
+   Route::get('/test-dumps', function () {
+       dump('Hello from Laravel!');
+       return 'Check your dump viewer!';
+   });
+   ```
+
+**Manual Registration (if auto-setup fails):**
+
+If the automatic setup doesn't work, you can manually register the service provider:
+
+<details>
+<summary><strong>Laravel 12/11 (bootstrap/app.php)</strong></summary>
+
+**If your `bootstrap/app.php` has an empty `->withProviders()`:**
+```php
+// Change this:
+->withProviders()
+
+// To this:
+->withProviders([
+    App\Providers\NvimDumpServiceProvider::class,
+])
+```
+
+**Complete example:**
+```php
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withProviders([
+        App\Providers\NvimDumpServiceProvider::class,  // ← Add this line
+    ])
+    ->withMiddleware(function (Middleware $middleware) {
+        //
+    })
+    ->withExceptions(function (Exceptions $exceptions) {
+        //
+    })->create();
+```
+</details>
+
+<details>
+<summary><strong>Laravel 10 (config/app.php)</strong></summary>
+
+```php
+'providers' => [
+    // ... other providers ...
+    
+    App\Providers\NvimDumpServiceProvider::class,  // ← Add this line
+],
+```
+</details>
+
+> **💡 Pro tip**: The service provider only runs in `local` environment, so it won't affect production!
+
+#### How It Works
+
+The dump viewer works by:
+
+1. **Installing a Laravel Service Provider** that captures `dump()` output
+2. **Logging dumps** to `storage/logs/nvim-dumps.log` with timestamps and file locations
+3. **Watching the log file** in real-time using Neovim's job system
+4. **Displaying dumps** in a beautiful floating window with syntax highlighting
+
+The service provider automatically integrates with Laravel's VarDumper component to capture all dump output without affecting your application's normal behavior.
+
 ## 📦 Installation
 
 ### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
@@ -531,4 +736,3 @@ The plugin will:
 | `:SailTest`       | Run tests through Sail       | `:SailTest --parallel` |
 | `:SailShare`      | Share application via tunnel | `:SailShare`           |
 | `:SailShell`      | Open shell in container      | `:SailShell`           |
-| `                 |
