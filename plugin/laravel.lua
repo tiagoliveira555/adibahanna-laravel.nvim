@@ -6,6 +6,8 @@ if vim.g.loaded_laravel_nvim then
 end
 vim.g.loaded_laravel_nvim = true
 
+local sail = require('laravel.sail')
+
 -- Check if we're in a Laravel project
 local function is_laravel_project()
     local markers = { 'artisan', 'composer.json', 'app/Http', 'config/app.php' }
@@ -589,13 +591,13 @@ local function setup_commands()
         local root = _G.laravel_nvim.project_root
 
         local commands = {
-            generate = 'php artisan ide-helper:generate',
-            models = 'php artisan ide-helper:models --write',
-            meta = 'php artisan ide-helper:meta',
+            generate = sail.wrap_command('php artisan ide-helper:generate'),
+            models = sail.wrap_command('php artisan ide-helper:models --write'),
+            meta = sail.wrap_command('php artisan ide-helper:meta'),
             all = {
-                'php artisan ide-helper:generate',
-                'php artisan ide-helper:models --write',
-                'php artisan ide-helper:meta'
+                sail.wrap_command('php artisan ide-helper:generate'),
+                sail.wrap_command('php artisan ide-helper:models --write'),
+                sail.wrap_command('php artisan ide-helper:meta')
             }
         }
 
