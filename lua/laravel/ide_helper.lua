@@ -3,6 +3,7 @@
 local M = {}
 
 local ui = require('laravel.ui')
+local sail = require('laravel.sail')
 
 -- Cache for IDE helper completions
 local cache = {
@@ -78,9 +79,9 @@ local function ensure_ide_helper_files()
         if choice == 1 then
             -- Generate files
             local commands = {
-                'php artisan ide-helper:generate',
-                'php artisan ide-helper:models --write',
-                'php artisan ide-helper:meta'
+                sail.wrap_command('php artisan ide-helper:generate'),
+                sail.wrap_command('php artisan ide-helper:models --write'),
+                sail.wrap_command('php artisan ide-helper:meta')
             }
 
             for _, cmd in ipairs(commands) do
