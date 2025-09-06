@@ -3,6 +3,7 @@
 local M = {}
 
 local ui = require('laravel.ui')
+local livewire = require('laravel.livewire')
 
 -- Cache for completions to avoid repeated file parsing
 local cache = {
@@ -11,6 +12,8 @@ local cache = {
     config = { data = {}, timestamp = 0 },
     translations = { data = {}, timestamp = 0 },
     env = { data = {}, timestamp = 0 },
+    livewire = { data = {}, timestamp = 0 },
+    wire_directives = { data = {}, timestamp = 0 },
 }
 
 local CACHE_TTL = 30 -- seconds
@@ -313,6 +316,97 @@ local function get_env_keys()
     return unique_keys
 end
 
+-- Get Livewire component names for completions
+local function get_livewire_components()
+    if is_cache_valid(cache.livewire) then
+        return cache.livewire.data
+    end
+
+    local components = livewire.find_livewire_components()
+    local component_names = {}
+
+    for _, component in ipairs(components) do
+        table.insert(component_names, component.name)
+        -- Also add class name for alternative completion
+        if component.class_name ~= component.name then
+            table.insert(component_names, component.class_name)
+        end
+    end
+
+    table.sort(component_names)
+
+    cache.livewire.data = component_names
+    cache.livewire.timestamp = os.time()
+    return component_names
+end
+
+-- Get wire directives for completions
+local function get_wire_directives()
+    if is_cache_valid(cache.wire_directives) then
+        return cache.wire_directives.data
+    end
+
+    local directives = livewire.get_wire_directives()
+
+    cache.wire_directives.data = directives
+    cache.wire_directives.timestamp = os.time()
+    return directives
+end
+
+-- Get Livewire component properties and methods for completions
+local function get_livewire_properties(component_name)
+    local root = get_project_root()
+    if not root or not component_name then return {} end
+
+    local components = livewire.find_livewire_components()
+    local target_component = nil
+
+    for _, component in ipairs(components) do
+        if component.name == component_name then
+            target_component = component
+            break
+        end
+    end
+
+    if not target_component or not target_component.path then
+        return {}
+    end
+
+    local properties = {}
+
+    if vim.fn.filereadable(target_component.path) == 1 then
+        local lines = vim.fn.readfile(target_component.path)
+
+        for _, line in ipairs(lines) do
+            -- Match public properties
+            local prop = line:match('public%s+%$([%w_]+)')
+            if prop then
+                table.insert(properties, prop)
+            end
+
+            -- Match public methods
+            local method = line:match('public%s+function%s+([%w_]+)%s*%(')
+            if method and method ~= '__construct' and method ~= 'render' then
+                table.insert(properties, method .. '()')
+            end
+
+            -- Match #[Computed] properties
+            if line:match('#%[Computed%]') then
+                -- Look at next line for method name
+                local next_idx = _
+                if lines[next_idx + 1] then
+                    local computed = lines[next_idx + 1]:match('public%s+function%s+([%w_]+)%s*%(')
+                    if computed then
+                        table.insert(properties, computed)
+                    end
+                end
+            end
+        end
+    end
+
+    return properties
+end
+
 -- Get completions based on function context
 function M.get_completions(func_name, partial)
     partial = partial or ''
@@ -329,6 +423,29 @@ function M.get_completions(func_name, partial)
         completions = get_translation_keys()
     elseif func_name == 'env' then
         completions = get_env_keys()
+
+        -- Livewire completions
+    elseif func_name == 'livewire' or func_name == '@livewire' then
+        completions = get_livewire_components()
+    elseif func_name == 'wire' then
+        completions = get_wire_directives()
+    elseif func_name == '$wire' then
+        -- Get properties/methods from current component context
+        local current_file = vim.fn.expand('%:p')
+        local component_name = nil
+
+        -- Try to determine current component from file path
+        if current_file:match('/resources/views/livewire/') then
+            -- Extract component name from view path
+            local view_name = current_file:match('/resources/views/livewire/(.+)%.blade%.php$')
+            if view_name then
+                component_name = view_name:gsub('/', '.')
+            end
+        end
+
+        if component_name then
+            completions = get_livewire_properties(component_name)
+        end
     elseif func_name == 'app' then
         -- Use IDE helper for container bindings
         local ok, ide_helper = pcall(require, 'laravel.ide_helper')
@@ -364,6 +481,43 @@ function M.get_completions(func_name, partial)
     return completions
 end
 
+-- Get context-aware completions for Blade templates
+function M.get_blade_completions()
+    local line = vim.fn.getline('.')
+    local col = vim.fn.col('.') - 1
+
+    -- Check for Livewire directive context
+    if line:sub(1, col):match('@livewire%s*%($') or
+        line:sub(1, col):match('@livewire%s*%([\'"]$') then
+        return get_livewire_components()
+    end
+
+    -- Check for wire: attribute context
+    if line:sub(1, col):match('wire:$') then
+        return get_wire_directives()
+    end
+
+    -- Check for Livewire tag context
+    if line:sub(1, col):match('<livewire:$') then
+        return get_livewire_components()
+    end
+
+    -- Check for Alpine.js $wire context
+    if line:sub(1, col):match('%$wire%.$') then
+        -- Get current component context and return its properties
+        local current_file = vim.fn.expand('%:p')
+        if current_file:match('/resources/views/livewire/') then
+            local view_name = current_file:match('/resources/views/livewire/(.+)%.blade%.php$')
+            if view_name then
+                local component_name = view_name:gsub('/', '.')
+                return get_livewire_properties(component_name)
+            end
+        end
+    end
+
+    return {}
+end
+
 -- Clear all caches
 function M.clear_cache()
     for key, _ in pairs(cache) do
@@ -375,6 +529,13 @@ end
 function M.setup()
     -- We'll integrate with completion engines in the setup
     -- For now, just ensure caches are initialized
+    vim.api.nvim_create_autocmd('BufWritePost', {
+        pattern = { '*/app/Livewire/*.php', '*/app/Http/Livewire/*.php', '*/resources/views/livewire/*.blade.php' },
+        callback = function()
+            cache.livewire = { data = {}, timestamp = 0 }
+            cache.wire_directives = { data = {}, timestamp = 0 }
+        end
+    })
 end
 
 return M

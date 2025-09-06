@@ -2,6 +2,7 @@
 local M = {}
 
 local ui = require('laravel.ui')
+local livewire = require('laravel.livewire')
 
 -- Treesitter utilities for Laravel navigation
 local ts_utils = {}
@@ -1383,6 +1384,11 @@ end
 
 -- Check if current context is Laravel-specific and should use Laravel navigation
 function M.is_laravel_navigation_context()
+    -- Check Livewire context first
+    if livewire.is_livewire_context() then
+        return true
+    end
+
     -- Try treesitter first if available - this is now the primary method
     if ts_utils.is_laravel_context_ts() then
         return true
@@ -1397,6 +1403,11 @@ function M.is_laravel_navigation_context()
         'view%s*%(',
         'Route%s*::%s*',
         'Inertia%s*::%s*render%s*%(',
+        -- Livewire patterns
+        '@livewire%s*%(',
+        '<livewire:',
+        'Livewire%s*::%s*',
+        'wire:',
     }
 
     for _, pattern in ipairs(basic_patterns) do
@@ -1420,8 +1431,12 @@ local function get_surrounding_lines_joined(window, num_lines)
 end
 
 -- Enhanced Laravel string navigation - detects context and navigates to appropriate file
-function M.goto_laravel_string()
-    -- PRIMARY: Try treesitter navigation (this should handle 90%+ of cases)
+function M.goto_laravel_string() -- PRIMARY: Try treesitter navigation (this should handle 90%+ of cases)
+    -- Try Livewire navigation first
+    if livewire.goto_livewire_definition() then
+        return true
+    end
+
     if ts_utils.goto_laravel_string_ts() then
         return true
     end
@@ -1436,6 +1451,9 @@ function M.goto_laravel_string()
         { pattern = "view%s*%(%s*['\"]([^'\"]+)['\"]",                                   func = 'view' },
         { pattern = "Route::inertia%s*%(%s*['\"][^'\"]*['\"]%s*,%s*['\"]([^'\"]+)['\"]", func = 'view' },
         { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",                        func = 'view' }
+        -- Livewire patterns
+        { pattern = "@livewire%s*%(%s*['\"]([^'\"]+)['\"]",                              func = 'livewire' },
+        { pattern = "<livewire:([%w%-%.]+)",                                             func = 'livewire' },
     }
 
     for _, extraction in ipairs(basic_extractions) do
@@ -1445,6 +1463,8 @@ function M.goto_laravel_string()
                 M.goto_route_definition(match)
             elseif extraction.func == 'view' then
                 M.goto_view(match)
+            elseif extraction.func == 'livewire' then
+                livewire.goto_livewire_component(match)
             end
             return true
         end
@@ -1717,6 +1737,18 @@ function M.goto_asset(asset_path)
     ui.warn('Asset file not found: ' .. asset_path)
 end
 
+function M.goto_livewire(name)
+    return livewire.goto_livewire_component(name)
+end
+
+function M.goto_livewire_view(name)
+    return livewire.goto_livewire_view(name)
+end
+
+function M.toggle_livewire()
+    return livewire.toggle_livewire_file()
+end
+
 -- Enhanced debug function to show treesitter parse information and all matches
 function M.debug_treesitter_context()
     local parser, ts = ts_utils.get_parser()
@@ -1778,6 +1810,24 @@ function M.debug_treesitter_context()
         end
     else
         table.insert(debug_info, 'No node found at cursor position')
+    end
+    table.insert(debug_info, '')
+    table.insert(debug_info, 'Livewire Context:')
+    table.insert(debug_info, '-----------------')
+
+    if livewire.is_livewire_context() then
+        table.insert(debug_info, 'In Livewire context: YES')
+
+        local line = vim.fn.getline('.')
+        local component = line:match("@livewire%s*%(%s*['\"]([^'\"]+)['\"]") or
+            line:match("<livewire:([%w%-%.]+)") or
+            line:match("Livewire::component%s*%(%s*['\"]([^'\"]+)['\"]")
+
+        if component then
+            table.insert(debug_info, 'Component detected: ' .. component)
+        end
+    else
+        table.insert(debug_info, 'In Livewire context: NO')
     end
 
     table.insert(debug_info, '')
