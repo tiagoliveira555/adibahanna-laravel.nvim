@@ -9,6 +9,7 @@
 -- vim.keymap.set('n', '<your-key>', function() require('laravel.navigate').goto_controller() end)
 -- etc.
 local M = {}
+local livewire = require('laravel.livewire')
 
 -- Setup Laravel-specific keymaps
 -- All Laravel keymaps use <leader>L prefix for organization:
@@ -66,6 +67,12 @@ local function setup_laravel_keymaps()
 
                 -- Check if this looks like a Laravel-specific pattern first
                 local navigate = require('laravel.navigate')
+
+                if livewire.is_livewire_context() then
+                    local success = pcall(livewire.goto_livewire_definition)
+                    if success then return end
+                end
+
                 if navigate.is_laravel_navigation_context() then
                     -- This is a Laravel-specific context, try Laravel navigation
                     local success = pcall(navigate.goto_laravel_string)
@@ -81,7 +88,9 @@ local function setup_laravel_keymaps()
                     -- Final fallback to built-in definition
                     vim.cmd('normal! gd')
                 end
-            end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to definition (Laravel strings or LSP)' }))
+            end,
+                vim.tbl_extend('force', bufopts,
+                    { desc = 'Laravel: Go to definition (Laravel strings, Livewire, or LSP)' }))
 
             -- Laravel-specific navigation with <leader>L prefix
             vim.keymap.set('n', '<leader>Lc', function()
@@ -127,6 +136,19 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>LA', function()
                 require('laravel.architecture').show_architecture_diagram()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Show architecture diagram' }))
+
+            -- Livewire keymaps
+            vim.keymap.set('n', '<leader>LC', function()
+                livewire.goto_livewire_component()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Livewire: Go to component' }))
+
+            vim.keymap.set('n', '<leader>LV', function()
+                livewire.goto_livewire_view()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Livewire: Go to view' }))
+
+            vim.keymap.set('n', '<leader>LT', function()
+                livewire.toggle_livewire_file()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Livewire: Toggle between class and view' }))
 
             -- Laravel Sail keymaps
             vim.keymap.set('n', '<leader>Lsu', function()
@@ -246,6 +268,18 @@ local function setup_laravel_keymaps()
             vim.keymap.set('n', '<leader>Lv', function()
                 require('laravel.navigate').goto_view()
             end, vim.tbl_extend('force', bufopts, { desc = 'Laravel: Go to view' }))
+
+            vim.keymap.set('n', '<leader>LC', function()
+                livewire.goto_livewire_component()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Livewire: Go to component' }))
+
+            vim.keymap.set('n', '<leader>LV', function()
+                livewire.goto_livewire_view()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Livewire: Go to view' }))
+
+            vim.keymap.set('n', '<leader>LT', function()
+                livewire.toggle_livewire_file()
+            end, vim.tbl_extend('force', bufopts, { desc = 'Livewire: Toggle between class and view' }))
         end,
     })
 
