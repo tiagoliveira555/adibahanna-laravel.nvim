@@ -53,7 +53,6 @@ local function setup_laravel_keymaps()
             local bufopts = { noremap = true, silent = true, buffer = bufnr }
 
             -- Enhanced gd mapping for Laravel string navigation
-
             vim.keymap.set('n', 'gd', function()
                 -- Get Laravel project root
                 local project_root = _G.laravel_nvim and _G.laravel_nvim.project_root
@@ -69,7 +68,7 @@ local function setup_laravel_keymaps()
 
                 local navigate = require('laravel.navigate')
 
-                -- 1. Attempt Livewire navigation in views (@livewire / <livewire:...>)
+                -- 1. Attempt Livewire navigation in Blade views (@livewire / <livewire:...>)
                 if livewire.is_livewire_context() then
                     if pcall(livewire.goto_livewire_definition) then
                         return
@@ -85,21 +84,19 @@ local function setup_laravel_keymaps()
                 end
 
                 -- 3. Attempt direct Livewire class detection
-                --    Useful for references like Route::get('/', HomePage::class)
+                --    Useful for Route::get('/', HomePage::class) and direct use statements
                 local word = vim.fn.expand('<cword>') -- get the word under cursor
-                local col = vim.fn.col('.')
                 local line = vim.fn.getline('.')
 
-                -- If the cursor is over a ::class, remove it from the word
-                local after_cursor = line:sub(col)
-                if after_cursor:match("^::class") then
-                    word = word:gsub("::class", "")
-                end
+                -- Remove ::class if present under cursor
+                word = word:gsub("::class", "")
 
                 -- Iterate over all Livewire components
                 for _, component in ipairs(livewire.find_livewire_components()) do
-                    -- Match the class name exactly or partially
-                    if component.class_name == word or component.class_name:match(word) then
+                    -- Match either the full namespace or the class name
+                    if component.namespace:match(word) or
+                        component.class_name == word or
+                        component.class_name:match(word) then
                         vim.cmd('edit ' .. component.path)
                         return
                     end
@@ -115,6 +112,7 @@ local function setup_laravel_keymaps()
             end, vim.tbl_extend('force', bufopts, {
                 desc = 'Laravel: Go to definition (Livewire directives, Laravel strings, Livewire classes, or LSP)'
             }))
+
             -- Laravel-specific navigation with <leader>L prefix
             vim.keymap.set('n', '<leader>Lc', function()
                 require('laravel.navigate').goto_controller()
