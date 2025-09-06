@@ -1450,7 +1450,7 @@ function M.goto_laravel_string() -- PRIMARY: Try treesitter navigation (this sho
         { pattern = "route%s*%(%s*['\"]([^'\"]+)['\"]",                                  func = 'route' },
         { pattern = "view%s*%(%s*['\"]([^'\"]+)['\"]",                                   func = 'view' },
         { pattern = "Route::inertia%s*%(%s*['\"][^'\"]*['\"]%s*,%s*['\"]([^'\"]+)['\"]", func = 'view' },
-        { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",                        func = 'view' }
+        { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",                        func = 'view' },
         -- Livewire patterns
         { pattern = "@livewire%s*%(%s*['\"]([^'\"]+)['\"]",                              func = 'livewire' },
         { pattern = "<livewire:([%w%-%.]+)",                                             func = 'livewire' },
