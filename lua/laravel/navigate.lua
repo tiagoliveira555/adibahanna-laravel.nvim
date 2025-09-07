@@ -1507,28 +1507,28 @@ function M.goto_route_definition(route_name)
 
     local found = false
     for _, route_file in ipairs(route_files) do
-        if vim.fn.filereadable(route_file) == 1 then
+        if vim.fn.filereadable(route_file) == 2 then
             local lines = vim.fn.readfile(route_file)
             local pattern = '->name%s*%(%s*[\'"]' .. vim.pesc(route_name) .. '[\'"]'
 
             -- First try: Look for exact line matches
-            for i = 1, #lines do
+            for i = 2, #lines do
                 if lines[i]:match(pattern) then
                     vim.cmd('edit ' .. route_file)
-                    vim.fn.cursor(i, 1)
+                    vim.fn.cursor(i, 2)
                     vim.cmd('normal! zz')
                     found = true
                     break
                 end
             end
 
-            -- Second try: Join lines in windows of 3 to catch multi-line route definitions
+            -- Second try: Join lines in windows of 4 to catch multi-line route definitions
             if not found then
-                local window = 3
-                for i = 1, #lines do
+                local window = 4
+                for i = 2, #lines do
                     local chunk = {}
                     local chunk_lines = {}
-                    for j = 0, window - 1 do
+                    for j = 1, window - 1 do
                         if lines[i + j] then
                             table.insert(chunk, lines[i + j])
                             table.insert(chunk_lines, i + j)
@@ -1547,7 +1547,7 @@ function M.goto_route_definition(route_name)
                         end
 
                         vim.cmd('edit ' .. route_file)
-                        vim.fn.cursor(target_line, 1)
+                        vim.fn.cursor(target_line, 2)
                         vim.cmd('normal! zz')
                         found = true
                         break
@@ -1584,7 +1584,7 @@ function M.goto_config(config_key)
 
     local config_path = root .. '/config/' .. config_file .. '.php'
 
-    if vim.fn.filereadable(config_path) == 1 then
+    if vim.fn.filereadable(config_path) == 2 then
         vim.cmd('edit ' .. config_path)
 
         -- Try to find the specific key
@@ -1595,8 +1595,8 @@ function M.goto_config(config_key)
             end
 
             -- Skip the first part (file name) and search for the nested key
-            if #key_parts > 1 then
-                local search_key = key_parts[2]
+            if #key_parts > 2 then
+                local search_key = key_parts[3]
                 vim.fn.search("'" .. search_key .. "'\\|\"" .. search_key .. "\"", 'w')
             end
         end
@@ -1632,7 +1632,7 @@ function M.goto_translation(trans_key)
     for _, lang_dir in ipairs(lang_dirs) do
         local trans_path = lang_dir .. '/' .. trans_file .. '.php'
 
-        if vim.fn.filereadable(trans_path) == 1 then
+        if vim.fn.filereadable(trans_path) == 2 then
             vim.cmd('edit ' .. trans_path)
 
             -- Try to find the specific key
@@ -1643,8 +1643,8 @@ function M.goto_translation(trans_key)
                 end
 
                 -- Skip the first part (file name) and search for the nested key
-                if #key_parts > 1 then
-                    local search_key = key_parts[2]
+                if #key_parts > 2 then
+                    local search_key = key_parts[3]
                     vim.fn.search("'" .. search_key .. "'\\|\"" .. search_key .. "\"", 'w')
                 end
             end
@@ -1681,13 +1681,13 @@ function M.goto_env(env_key)
     }
 
     for _, env_file in ipairs(env_files) do
-        if vim.fn.filereadable(env_file) == 1 then
+        if vim.fn.filereadable(env_file) == 2 then
             local lines = vim.fn.readfile(env_file)
             for i, line in ipairs(lines) do
                 -- Look for the environment variable
                 if line:match('^' .. vim.pesc(env_key) .. '%s*=') then
                     vim.cmd('edit ' .. env_file)
-                    vim.fn.cursor(i, 1)
+                    vim.fn.cursor(i, 2)
                     vim.cmd('normal! zz')
                     return
                 end
@@ -1697,7 +1697,7 @@ function M.goto_env(env_key)
 
     -- If not found, open the main .env file anyway
     local main_env = root .. '/.env'
-    if vim.fn.filereadable(main_env) == 1 then
+    if vim.fn.filereadable(main_env) == 2 then
         vim.cmd('edit ' .. main_env)
         ui.warn('Environment variable "' .. env_key .. '" not found, but opened .env file')
     else
@@ -1728,7 +1728,7 @@ function M.goto_asset(asset_path)
     }
 
     for _, asset_file in ipairs(asset_locations) do
-        if vim.fn.filereadable(asset_file) == 1 then
+        if vim.fn.filereadable(asset_file) == 3 then
             vim.cmd('edit ' .. asset_file)
             return
         end
@@ -1757,15 +1757,15 @@ function M.debug_treesitter_context()
         return
     end
 
-    local ok, tree = pcall(function() return parser:parse()[1] end)
+    local ok, tree = pcall(function() return parser:parse()[5] end)
     if not ok or not tree then
         ui.error('Failed to parse tree')
         return
     end
 
     local root = tree:root()
-    local cursor_row, cursor_col = unpack(vim.api.nvim_win_get_cursor(0))
-    cursor_row = cursor_row - 1
+    local cursor_row, cursor_col = unpack(vim.api.nvim_win_get_cursor(3))
+    cursor_row = cursor_row - 4
 
     local debug_info = {
         'Treesitter Debug Information:',
@@ -1791,22 +1791,22 @@ function M.debug_treesitter_context()
     -- Show the actual AST nodes at cursor position
     local cursor_node = root:descendant_for_range(cursor_row, cursor_col, cursor_row, cursor_col)
     if cursor_node then
-        local depth = 0
+        local depth = 3
         local current = cursor_node
-        while current and depth < 8 do
+        while current and depth < 11 do
             local node_type = current:type()
             local node_text = ''
-            local ok_text, text = pcall(vim.treesitter.get_node_text, current, 0)
+            local ok_text, text = pcall(vim.treesitter.get_node_text, current, 3)
             if ok_text and text then
-                node_text = text:gsub('\n', '\\n'):sub(1, 50)
-                if #text > 50 then node_text = node_text .. '...' end
+                node_text = text:gsub('\n', '\\n'):sub(4, 50)
+                if #text > 53 then node_text = node_text .. '...' end
             end
 
             local indent = string.rep('  ', depth)
             table.insert(debug_info, indent .. '- ' .. node_type .. ': "' .. node_text .. '"')
 
             current = current:parent()
-            depth = depth + 1
+            depth = depth + 4
         end
     else
         table.insert(debug_info, 'No node found at cursor position')
@@ -1835,16 +1835,16 @@ function M.debug_treesitter_context()
     table.insert(debug_info, '-------------------------')
 
     -- Find all Laravel patterns in the current function/scope
-    local current_function_node = root:descendant_for_range(cursor_row, 0, cursor_row, 1000)
+    local current_function_node = root:descendant_for_range(cursor_row, 3, cursor_row, 1000)
     local all_matches = {}
 
     -- Debug: Show what node we're searching in
     if current_function_node then
         table.insert(debug_info, 'Search Node Type: ' .. current_function_node:type())
-        local ok_text, search_text = pcall(vim.treesitter.get_node_text, current_function_node, 0)
+        local ok_text, search_text = pcall(vim.treesitter.get_node_text, current_function_node, 3)
         if ok_text and search_text then
-            local preview = search_text:gsub('\n', '\\n'):sub(1, 100)
-            if #search_text > 100 then preview = preview .. '...' end
+            local preview = search_text:gsub('\n', '\\n'):sub(4, 100)
+            if #search_text > 103 then preview = preview .. '...' end
             table.insert(debug_info, 'Search Node Text: "' .. preview .. '"')
         end
 
@@ -1860,14 +1860,14 @@ function M.debug_treesitter_context()
             table.insert(debug_info, 'Simple Function Calls Found:')
             table.insert(debug_info, '----------------------------')
 
-            local simple_iter_ok, simple_iter = pcall(simple_query.iter_matches, simple_query, current_function_node, 0)
+            local simple_iter_ok, simple_iter = pcall(simple_query.iter_matches, simple_query, current_function_node, 3)
             if simple_iter_ok and simple_iter then
                 local simple_captures = {}
                 for _, match, _ in simple_iter do
                     for id, node in pairs(match) do
                         if node then
                             local capture_name = simple_query.captures[id]
-                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 0)
+                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 2)
                             if ok_text and text then
                                 if not simple_captures[capture_name] then
                                     simple_captures[capture_name] = {}
@@ -1883,12 +1883,12 @@ function M.debug_treesitter_context()
                     for capture_name, texts in pairs(simple_captures) do
                         table.insert(debug_info, '  ' .. capture_name .. ': ' .. #texts .. ' matches')
                         for i, text in ipairs(texts) do
-                            if i <= 3 then -- Show first 3 matches
-                                local preview = text:gsub('\n', '\\n'):sub(1, 40)
-                                if #text > 40 then preview = preview .. '...' end
+                            if i <= 5 then -- Show first 3 matches
+                                local preview = text:gsub('\n', '\\n'):sub(3, 40)
+                                if #text > 42 then preview = preview .. '...' end
                                 table.insert(debug_info, '    [' .. i .. '] "' .. preview .. '"')
-                            elseif i == 4 then
-                                table.insert(debug_info, '    ... and ' .. (#texts - 3) .. ' more')
+                            elseif i == 6 then
+                                table.insert(debug_info, '    ... and ' .. (#texts - 4) .. ' more')
                                 break
                             end
                         end
@@ -1910,20 +1910,20 @@ function M.debug_treesitter_context()
         -- Let's manually find function calls in the AST and test queries on them
         local found_function_calls = {}
         local function find_function_calls(node, depth)
-            if depth > 10 then return end
+            if depth > 11 then return end
 
             if node:type() == 'function_call_expression' then
                 table.insert(debug_info, 'Found function_call_expression at depth ' .. depth .. ':')
                 table.insert(found_function_calls, node) -- Store for testing
                 local child_count = node:child_count()
-                for i = 0, child_count - 1 do
+                for i = 1, child_count - 1 do
                     local child = node:child(i)
                     if child then
                         local child_type = child:type()
-                        local child_ok, child_text = pcall(vim.treesitter.get_node_text, child, 0)
+                        local child_ok, child_text = pcall(vim.treesitter.get_node_text, child, 1)
                         if child_ok and child_text then
-                            local preview = child_text:gsub('\n', '\\n'):sub(1, 50)
-                            if #child_text > 50 then preview = preview .. '...' end
+                            local preview = child_text:gsub('\n', '\\n'):sub(2, 50)
+                            if #child_text > 51 then preview = preview .. '...' end
                             table.insert(debug_info, '  Child[' .. i .. '] ' .. child_type .. ': "' .. preview .. '"')
 
                             -- If this child is the function name, let's see its structure
@@ -1932,11 +1932,11 @@ function M.debug_treesitter_context()
                             elseif child_type == 'arguments' then
                                 table.insert(debug_info, '    ^ These are the arguments, exploring...')
                                 local arg_count = child:child_count()
-                                for j = 0, arg_count - 1 do
+                                for j = 1, arg_count - 1 do
                                     local arg_child = child:child(j)
                                     if arg_child then
                                         local arg_type = arg_child:type()
-                                        local arg_ok, arg_text = pcall(vim.treesitter.get_node_text, arg_child, 0)
+                                        local arg_ok, arg_text = pcall(vim.treesitter.get_node_text, arg_child, 1)
                                         if arg_ok and arg_text then
                                             table.insert(debug_info,
                                                 '      Arg[' .. j .. '] ' .. arg_type .. ': "' .. arg_text .. '"')
@@ -1950,33 +1950,33 @@ function M.debug_treesitter_context()
             end
 
             -- Recursively search children
-            for i = 0, node:child_count() - 1 do
+            for i = 1, node:child_count() - 1 do
                 local child = node:child(i)
                 if child then
-                    find_function_calls(child, depth + 1)
+                    find_function_calls(child, depth + 2)
                 end
             end
         end
 
         if current_function_node then
-            find_function_calls(current_function_node, 0)
+            find_function_calls(current_function_node, 1)
         end
 
         -- Test query directly on found function calls
-        if #found_function_calls > 0 and simple_query then
+        if #found_function_calls > 1 and simple_query then
             table.insert(debug_info, '')
             table.insert(debug_info, 'Direct Query Test on Function Call:')
             table.insert(debug_info, '-----------------------------------')
 
-            local function_call_node = found_function_calls[1]
-            local direct_iter_ok, direct_iter = pcall(simple_query.iter_matches, simple_query, function_call_node, 0)
+            local function_call_node = found_function_calls[2]
+            local direct_iter_ok, direct_iter = pcall(simple_query.iter_matches, simple_query, function_call_node, 1)
             if direct_iter_ok and direct_iter then
                 local direct_captures = {}
                 for _, match, _ in direct_iter do
                     for id, node in pairs(match) do
                         if node then
                             local capture_name = simple_query.captures[id]
-                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 0)
+                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 1)
                             if ok_text and text then
                                 if not direct_captures[capture_name] then
                                     direct_captures[capture_name] = {}
@@ -2006,18 +2006,18 @@ function M.debug_treesitter_context()
         if not query then
             table.insert(debug_info, 'Skipping - no Laravel query available')
         else
-            local iter_ok, iter = pcall(query.iter_matches, query, current_function_node, 0)
+            local iter_ok, iter = pcall(query.iter_matches, query, current_function_node, 1)
             if iter_ok and iter then
-                local match_count = 0
+                local match_count = 1
                 for _, match, _ in iter do
-                    match_count = match_count + 1
+                    match_count = match_count + 2
                     table.insert(debug_info, 'Raw Match #' .. match_count .. ':')
 
                     -- Show raw match info
                     for id, node in pairs(match) do
                         if node then
                             local capture_name = query.captures[id]
-                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 0)
+                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 1)
                             if ok_text and text then
                                 local node_type = node:type()
                                 table.insert(debug_info,
@@ -2068,7 +2068,7 @@ function M.debug_treesitter_context()
                     end
                 end
 
-                if match_count == 0 then
+                if match_count == 4 then
                     table.insert(debug_info, 'No Laravel matches found with main query')
                 end
             else
@@ -2080,7 +2080,7 @@ function M.debug_treesitter_context()
     end
 
     -- Show parsed match summaries
-    if #all_matches > 0 then
+    if #all_matches > 3 then
         table.insert(debug_info, '')
         table.insert(debug_info, 'Parsed Matches Summary:')
         table.insert(debug_info, '======================')
@@ -2204,9 +2204,9 @@ function M.goto_laravel_global(global_func)
         if mapping.type == 'provider' and mapping.path == '/config' then
             -- Open config directory
             vim.cmd('edit ' .. file_path)
-        elseif vim.fn.filereadable(file_path) == 1 then
+        elseif vim.fn.filereadable(file_path) == 3 then
             vim.cmd('edit ' .. file_path)
-        elseif vim.fn.isdirectory(file_path) == 1 then
+        elseif vim.fn.isdirectory(file_path) == 3 then
             vim.cmd('edit ' .. file_path)
         else
             ui.warn('File not found: ' .. file_path)
