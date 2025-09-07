@@ -54,10 +54,9 @@ local function setup_laravel_keymaps()
 
             -- Enhanced gd mapping for Laravel string navigation
             vim.keymap.set('n', 'gd', function()
-                -- Get Laravel project root
                 local project_root = _G.laravel_nvim and _G.laravel_nvim.project_root
                 if not project_root then
-                    -- Not a Laravel project: fallback to LSP definition or default gd
+                    -- Not a Laravel project: fallback to LSP or default gd
                     if vim.lsp.buf.definition then
                         vim.lsp.buf.definition()
                     else
@@ -68,49 +67,52 @@ local function setup_laravel_keymaps()
 
                 local navigate = require('laravel.navigate')
 
-                -- 1. Attempt Livewire navigation in Blade views (@livewire / <livewire:...>)
-                if livewire.is_livewire_context() then
-                    if pcall(livewire.goto_livewire_definition) then
+                -- 1. Attempt Livewire view or class navigation
+                local word = vim.fn.expand('<cword>')
+
+                -- If the cursor is over a ::class, remove it
+                local col = vim.fn.col('.')
+                local line = vim.fn.getline('.')
+                local after_cursor = line:sub(col)
+                if after_cursor:match("^::class") then
+                    word = word:gsub("::class", "")
+                end
+
+                -- Try to match Livewire classes
+                local components = livewire.find_livewire_components()
+                for _, component in ipairs(components) do
+                    if component.namespace:match(word) or component.class_name == word then
+                        -- Open the PHP class
+                        vim.cmd('edit ' .. component.path)
                         return
                     end
                 end
 
-                -- 2. Attempt Laravel string navigation
-                --    Examples: route('name'), view('name'), Inertia::render('Component')
+                -- Try to match Livewire view from a view() call
+                local view_name = line:match("view%s*%(%s*['\"]([^'\"]+)['\"]")
+                if view_name then
+                    local view_path = livewire.resolve_view_path(view_name)
+                    if view_path then
+                        vim.cmd('edit ' .. view_path)
+                        return
+                    end
+                end
+
+                -- 2. Attempt Laravel string navigation (route(), Inertia::render(), etc.)
                 if navigate.is_laravel_navigation_context() then
                     if pcall(navigate.goto_laravel_string) then
                         return
                     end
                 end
 
-                -- 3. Attempt direct Livewire class detection
-                --    Useful for Route::get('/', HomePage::class) and direct use statements
-                local word = vim.fn.expand('<cword>') -- get the word under cursor
-                local line = vim.fn.getline('.')
-
-                -- Remove ::class if present under cursor
-                word = word:gsub("::class", "")
-
-                -- Iterate over all Livewire components
-                for _, component in ipairs(livewire.find_livewire_components()) do
-                    -- Match either the full namespace or the class name
-                    if component.namespace:match(word) or
-                        component.class_name == word or
-                        component.class_name:match(word) then
-                        vim.cmd('edit ' .. component.path)
-                        return
-                    end
-                end
-
-                -- 4. Fallback to LSP definition if nothing else matches
+                -- 3. Fallback to LSP
                 if vim.lsp.buf.definition then
                     vim.lsp.buf.definition()
                 else
-                    -- Final fallback to built-in gd
                     vim.cmd('normal! gd')
                 end
             end, vim.tbl_extend('force', bufopts, {
-                desc = 'Laravel: Go to definition (Livewire directives, Laravel strings, Livewire classes, or LSP)'
+                desc = 'Laravel: Go to definition (Livewire views/classes, Laravel strings, or LSP)'
             }))
 
             -- Laravel-specific navigation with <leader>L prefix
