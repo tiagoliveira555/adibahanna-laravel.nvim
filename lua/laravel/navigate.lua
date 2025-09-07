@@ -526,7 +526,7 @@ function ts_utils.create_laravel_call_info(function_name, scope_name, method_nam
         return nil
     end
 
-    -- Map Laravel functions to navigation types (same as before)
+    -- Map Laravel functions to navigation types
     local laravel_functions = {
         -- Navigation helpers
         route = 'route',
@@ -559,6 +559,9 @@ function ts_utils.create_laravel_call_info(function_name, scope_name, method_nam
 
         -- Inertia
         inertia = 'view',
+
+        -- Livewire helpers
+        livewire = 'livewire',
 
         -- Other Laravel helpers
         policy = 'policy',
@@ -608,6 +611,16 @@ function ts_utils.create_laravel_call_info(function_name, scope_name, method_nam
         elseif scope_lower == 'inertia' and method_lower == 'render' then
             func_type = 'view'
             target_string = string_args[1]
+
+            -- Livewire static methods
+        elseif scope_lower == 'livewire' then
+            if method_lower == 'component' then
+                func_type = 'livewire'
+                target_string = string_args[1]
+            elseif method_lower == 'render' then
+                func_type = 'livewire'
+                target_string = string_args[1]
+            end
 
             -- Config facade
         elseif scope_lower == 'config' and method_lower == 'get' then
@@ -675,277 +688,6 @@ function ts_utils.node_contains_cursor(node, cursor_row, cursor_col)
         (cursor_row < end_row or cursor_col <= end_col)
 end
 
--- Debug version of extract_call_info that shows step-by-step process
-function ts_utils.extract_call_info_debug(match, query)
-    local debug_steps = {}
-    local function_name = nil
-    local scope_name = nil
-    local method_name = nil
-    local string_args = {}
-    local call_type = nil
-
-    table.insert(debug_steps, 'Extract Call Info Debug:')
-    table.insert(debug_steps, '========================')
-
-    for id, node in pairs(match) do
-        if node == nil then
-            table.insert(debug_steps, 'Skipping nil node')
-            goto continue
-        end
-
-        local capture_name = query.captures[id]
-        if not capture_name then
-            table.insert(debug_steps, 'No capture name for node')
-            goto continue
-        end
-
-        local ok, text = pcall(vim.treesitter.get_node_text, node, 0)
-        if not ok or not text then
-            table.insert(debug_steps, 'Failed to get text for capture: ' .. capture_name)
-            goto continue
-        end
-
-        table.insert(debug_steps, 'Processing: ' .. capture_name .. ' = "' .. text .. '"')
-
-        if capture_name == 'function_name' then
-            function_name = text
-            call_type = 'function'
-            table.insert(debug_steps, '  → Set function_name = ' .. text)
-        elseif capture_name == 'scope_name' then
-            scope_name = text
-            call_type = 'scoped'
-            table.insert(debug_steps, '  → Set scope_name = ' .. text)
-        elseif capture_name == 'method_name' then
-            method_name = text
-            if call_type ~= 'scoped' then
-                call_type = 'method'
-            end
-            table.insert(debug_steps, '  → Set method_name = ' .. text)
-        elseif capture_name == 'string_arg' or capture_name == 'string_arg_2' then
-            local clean_string = text
-            clean_string = clean_string:match('^[\'"](.*)[\'"]$') or clean_string
-            clean_string = clean_string:match('^"(.*)"$') or clean_string
-            clean_string = clean_string:match("^'(.*)'$") or clean_string
-            table.insert(string_args, clean_string)
-            table.insert(debug_steps, '  → Added string arg: "' .. clean_string .. '"')
-        elseif capture_name == 'string_content' then
-            table.insert(string_args, text)
-            table.insert(debug_steps, '  → Added string content: "' .. text .. '"')
-        end
-
-        ::continue::
-    end
-
-    table.insert(debug_steps, '')
-    table.insert(debug_steps, 'Results:')
-    table.insert(debug_steps, '--------')
-    table.insert(debug_steps, 'call_type: ' .. (call_type or 'nil'))
-    table.insert(debug_steps, 'function_name: ' .. (function_name or 'nil'))
-    table.insert(debug_steps, 'scope_name: ' .. (scope_name or 'nil'))
-    table.insert(debug_steps, 'method_name: ' .. (method_name or 'nil'))
-    table.insert(debug_steps, 'string_args: ' .. table.concat(string_args, ', '))
-
-    return debug_steps, {
-        call_type = call_type,
-        function_name = function_name,
-        scope_name = scope_name,
-        method_name = method_name,
-        string_args = string_args
-    }
-end
-
--- Extract call information from treesitter match
-function ts_utils.extract_call_info(match, query)
-    local function_name = nil
-    local scope_name = nil
-    local method_name = nil
-    local string_args = {}
-    local call_type = nil
-
-    for id, node in pairs(match) do
-        -- Skip nil nodes
-        if node == nil then
-            goto continue
-        end
-
-        local capture_name = query.captures[id]
-        if not capture_name then
-            goto continue
-        end
-
-        -- Safely get node text
-        local ok, text = pcall(vim.treesitter.get_node_text, node, 0)
-        if not ok or not text then
-            goto continue
-        end
-
-        if capture_name == 'function_name' then
-            function_name = text
-            call_type = 'function'
-        elseif capture_name == 'scope_name' then
-            scope_name = text
-            call_type = 'scoped'
-        elseif capture_name == 'method_name' then
-            method_name = text
-            if call_type ~= 'scoped' then
-                call_type = 'method'
-            end
-        elseif capture_name == 'string_arg' or capture_name == 'string_arg_2' then
-            -- Remove quotes from string (handle both single and double quotes)
-            local clean_string = text
-            -- Remove outer quotes if present
-            clean_string = clean_string:match('^[\'"](.*)[\'"]$') or clean_string
-            -- Handle double quotes with potential escape sequences
-            clean_string = clean_string:match('^"(.*)"$') or clean_string
-            -- Handle single quotes
-            clean_string = clean_string:match("^'(.*)'$") or clean_string
-
-            table.insert(string_args, clean_string)
-        elseif capture_name == 'string_content' then
-            -- Direct string content without quotes (PHP grammar structure)
-            table.insert(string_args, text)
-        end
-
-        ::continue::
-    end
-
-    -- Determine the Laravel function type and return structured info
-    local laravel_functions = {
-        -- Navigation helpers
-        route = 'route',
-        view = 'view',
-        config = 'config',
-        __ = 'trans',
-        trans = 'trans',
-        env = 'env',
-
-        -- Asset helpers
-        asset = 'asset',
-        secure_asset = 'asset',
-        mix = 'asset',
-
-        -- URL helpers
-        action = 'route',
-        to_route = 'route',
-        url = 'url',
-        secure_url = 'url',
-
-        -- Path helpers
-        app_path = 'path',
-        base_path = 'path',
-        config_path = 'path',
-        database_path = 'path',
-        lang_path = 'path',
-        public_path = 'path',
-        resource_path = 'path',
-        storage_path = 'path',
-
-        -- Inertia
-        inertia = 'view',
-
-        -- Other Laravel helpers
-        policy = 'policy',
-        broadcast = 'broadcast',
-        event = 'event',
-        collect = 'collect',
-        cache = 'cache',
-        session = 'session',
-        request = 'request',
-        response = 'response',
-        redirect = 'redirect',
-        back = 'redirect',
-        abort = 'abort',
-        logger = 'logger',
-
-        -- Method calls
-        name = 'route_name', -- for ->name() calls
-        render = 'view',     -- for Inertia::render()
-        middleware = 'middleware',
-        where = 'route_constraint',
-    }
-
-    local func_type = nil
-    local target_string = nil
-
-    -- Handle function calls
-    if call_type == 'function' and function_name then
-        func_type = laravel_functions[function_name]
-        target_string = string_args[1]
-
-        -- Handle scoped/static method calls
-    elseif call_type == 'scoped' and scope_name and method_name then
-        local scope_lower = scope_name:lower()
-        local method_lower = method_name:lower()
-
-        -- Route static methods
-        if scope_lower == 'route' then
-            if method_lower == 'inertia' and #string_args >= 2 then
-                func_type = 'view'
-                target_string = string_args[2] -- Second argument is the view name
-            elseif method_lower:match('^(get|post|put|patch|delete|options|head|any|match|redirect|view|resource|apiresource)$') then
-                func_type = 'route'
-                target_string = string_args[1] -- First argument is usually the URI
-            end
-
-            -- Inertia static methods
-        elseif scope_lower == 'inertia' and method_lower == 'render' then
-            func_type = 'view'
-            target_string = string_args[1]
-
-            -- Config facade
-        elseif scope_lower == 'config' and method_lower == 'get' then
-            func_type = 'config'
-            target_string = string_args[1]
-
-            -- View facade
-        elseif scope_lower == 'view' and method_lower == 'make' then
-            func_type = 'view'
-            target_string = string_args[1]
-
-            -- Other facades
-        elseif laravel_functions[method_lower] then
-            func_type = laravel_functions[method_lower]
-            target_string = string_args[1]
-        end
-
-        -- Handle method calls (instance or chained)
-    elseif call_type == 'method' and method_name then
-        local method_lower = method_name:lower()
-
-        if method_lower == 'name' then
-            func_type = 'route_name'
-            target_string = string_args[1]
-        elseif method_lower == 'view' then
-            func_type = 'view'
-            target_string = string_args[1]
-        elseif laravel_functions[method_lower] then
-            func_type = laravel_functions[method_lower]
-            target_string = string_args[1]
-        end
-    end
-
-    if func_type and target_string then
-        return {
-            func = func_type,
-            partial = target_string,
-            call_type = call_type,
-            function_name = function_name,
-            scope_name = scope_name,
-            method_name = method_name,
-            all_args = string_args
-        }
-    end
-
-    -- Debug: If we couldn't extract info, at least log what we found
-    -- This helps debug why extraction is failing
-    if call_type and (function_name or method_name) and #string_args > 0 then
-        -- We found something but it wasn't recognized as a Laravel function
-        -- This could help identify missing patterns
-    end
-
-    return nil
-end
-
 -- Direct AST-based Laravel context detection
 function ts_utils.is_laravel_context_ts()
     local ok, call_info = pcall(ts_utils.get_laravel_call_at_cursor)
@@ -977,6 +719,8 @@ function ts_utils.goto_laravel_string_ts()
         M.goto_asset(call_info.partial)
     elseif call_info.func == 'controller' then
         M.goto_controller(call_info.partial)
+    elseif call_info.func == 'livewire' then
+        M.goto_livewire(call_info.partial)
     elseif call_info.func == 'path' then
         -- Handle Laravel path helpers - could navigate to directories
         return false -- Not implemented yet
@@ -1000,72 +744,144 @@ function ts_utils.goto_laravel_string_ts()
     return true
 end
 
--- Navigate to policy file
-function M.goto_policy(policy_name)
-    if not policy_name or policy_name == '' then
-        ui.warn('No policy name provided')
-        return
-    end
-
-    local root = get_project_root()
-    if not root then
-        ui.error('Not in a Laravel project')
-        return
-    end
-
-    local policy_path = root .. '/app/Policies/' .. policy_name .. 'Policy.php'
-    if vim.fn.filereadable(policy_path) == 1 then
-        vim.cmd('edit ' .. policy_path)
-    else
-        ui.warn('Policy file not found: ' .. policy_name .. 'Policy.php')
-    end
-end
-
--- Navigate to middleware file
-function M.goto_middleware(middleware_name)
-    if not middleware_name or middleware_name == '' then
-        ui.warn('No middleware name provided')
-        return
-    end
-
-    local root = get_project_root()
-    if not root then
-        ui.error('Not in a Laravel project')
-        return
-    end
-
-    local middleware_path = root .. '/app/Http/Middleware/' .. middleware_name .. '.php'
-    if vim.fn.filereadable(middleware_path) == 1 then
-        vim.cmd('edit ' .. middleware_path)
-    else
-        ui.warn('Middleware file not found: ' .. middleware_name .. '.php')
-    end
-end
-
--- Navigate to event file
-function M.goto_event(event_name)
-    if not event_name or event_name == '' then
-        ui.warn('No event name provided')
-        return
-    end
-
-    local root = get_project_root()
-    if not root then
-        ui.error('Not in a Laravel project')
-        return
-    end
-
-    local event_path = root .. '/app/Events/' .. event_name .. '.php'
-    if vim.fn.filereadable(event_path) == 1 then
-        vim.cmd('edit ' .. event_path)
-    else
-        ui.warn('Event file not found: ' .. event_name .. '.php')
-    end
-end
-
 -- Get Laravel project root
 local function get_project_root()
     return _G.laravel_nvim.project_root
+end
+
+-- Check if current context is Laravel-specific and should use Laravel navigation
+function M.is_laravel_navigation_context()
+    -- Check Livewire context first with improved detection
+    if livewire.is_livewire_context() then
+        return true
+    end
+
+    -- Try treesitter first if available - this is now the primary method
+    if ts_utils.is_laravel_context_ts() then
+        return true
+    end
+
+    -- Enhanced regex patterns for better detection
+    local line = vim.fn.getline('.')
+
+    -- Laravel function patterns
+    local laravel_patterns = {
+        -- Core Laravel functions
+        'route%s*%(',
+        'view%s*%(',
+        'config%s*%(',
+        'trans%s*%(',
+        '__%s*%(',
+        'env%s*%(',
+        'asset%s*%(',
+        'url%s*%(',
+        
+        -- Facades
+        'Route%s*::%s*',
+        'View%s*::%s*',
+        'Config%s*::%s*',
+        'Inertia%s*::%s*',
+        'Livewire%s*::%s*',
+        
+        -- Livewire specific patterns
+        '@livewire%s*%(',
+        '<livewire:',
+        'wire:',
+        '%$wire',
+        '@entangle%s*%(',
+        
+        -- Blade directives
+        '@yield%s*%(',
+        '@section%s*%(',
+        '@include%s*%(',
+        '@extends%s*%(',
+    }
+
+    for _, pattern in ipairs(laravel_patterns) do
+        if line:match(pattern) then
+            return true
+        end
+    end
+
+    return false
+end
+
+-- Enhanced Laravel string navigation - detects context and navigates to appropriate file
+function M.goto_laravel_string()
+    -- PRIORITY 1: Try Livewire navigation first (most specific)
+    if livewire.is_livewire_context() then
+        local livewire_result = livewire.goto_livewire_definition()
+        if livewire_result then
+            return true
+        end
+    end
+
+    -- PRIORITY 2: Try treesitter navigation (handles 90%+ of cases)
+    if ts_utils.goto_laravel_string_ts() then
+        return true
+    end
+
+    -- PRIORITY 3: Enhanced regex fallback for basic patterns
+    local line = vim.fn.getline('.')
+    local col = vim.fn.col('.')
+
+    -- Enhanced Livewire patterns detection
+    local livewire_patterns = {
+        { pattern = "@livewire%s*%(%s*['\"]([^'\"]+)['\"]",                              func = 'livewire' },
+        { pattern = "<livewire:([%w%-%.]+)",                                             func = 'livewire' },
+        { pattern = "Livewire::component%s*%(%s*['\"]([^'\"]+)['\"]",                    func = 'livewire' },
+        { pattern = "Livewire::render%s*%(%s*['\"]([^'\"]+)['\"]",                      func = 'livewire' },
+    }
+
+    -- Check Livewire patterns first
+    for _, extraction in ipairs(livewire_patterns) do
+        local match = line:match(extraction.pattern)
+        if match then
+            M.goto_livewire(match)
+            return true
+        end
+    end
+
+    -- Standard Laravel patterns
+    local laravel_patterns = {
+        { pattern = "route%s*%(%s*['\"]([^'\"]+)['\"]",                                  func = 'route' },
+        { pattern = "view%s*%(%s*['\"]([^'\"]+)['\"]",                                   func = 'view' },
+        { pattern = "config%s*%(%s*['\"]([^'\"]+)['\"]",                                 func = 'config' },
+        { pattern = "Route::inertia%s*%(%s*['\"][^'\"]*['\"]%s*,%s*['\"]([^'\"]+)['\"]", func = 'view' },
+        { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",                        func = 'view' },
+        { pattern = "return%s+view%s*%(%s*['\"]([^'\"]+)['\"]",                          func = 'view' },
+    }
+
+    for _, extraction in ipairs(laravel_patterns) do
+        local match = line:match(extraction.pattern)
+        if match then
+            if extraction.func == 'route' then
+                M.goto_route_definition(match)
+            elseif extraction.func == 'view' then
+                M.goto_view(match)
+            elseif extraction.func == 'config' then
+                M.goto_config(match)
+            end
+            return true
+        end
+    end
+
+    -- If we get here, no pattern was detected
+    ui.warn('No Laravel navigation pattern detected at cursor position')
+    return false
+end
+
+-- Navigate to Livewire component or view
+function M.goto_livewire(name)
+    return livewire.goto_livewire_component(name)
+end
+
+function M.goto_livewire_view(name)
+    return livewire.goto_livewire_view(name)
+end
+
+function M.toggle_livewire()
+    return livewire.toggle_livewire_file()
 end
 
 -- Find controllers
@@ -1098,8 +914,8 @@ function M.find_controllers()
             if vim.fn.isdirectory(full_path) == 1 then
                 -- Recursively scan subdirectories
                 scan_directory(full_path, namespace .. '\\' .. item)
-            elseif item:match('%.php$') and item:match('Controller%.php$') then
-                local class_name = item:gsub('%.php$', '')
+            elseif item:match('%.php) and item:match('Controller%.php) then
+                local class_name = item:gsub('%.php, '')
                 controllers[#controllers + 1] = {
                     name = class_name,
                     namespace = namespace .. '\\' .. class_name,
@@ -1151,8 +967,8 @@ function M.find_models()
                     -- Recursively scan subdirectories
                     scan_directory(full_path, namespace .. '\\' .. item, is_models_dir)
                 end
-            elseif item:match('%.php$') then
-                local class_name = item:gsub('%.php$', '')
+            elseif item:match('%.php) then
+                local class_name = item:gsub('%.php, '')
 
                 -- Skip if we've already seen this model name
                 if seen_names[class_name] then
@@ -1382,107 +1198,6 @@ function M.goto_route_file(route_name)
     end
 end
 
--- Check if current context is Laravel-specific and should use Laravel navigation
-function M.is_laravel_navigation_context()
-    -- Check Livewire context first
-    if livewire.is_livewire_context() then
-        return true
-    end
-
-    -- Try treesitter first if available - this is now the primary method
-    if ts_utils.is_laravel_context_ts() then
-        return true
-    end
-
-    -- Minimal regex fallback - only for very basic cases when treesitter fails
-    local line = vim.fn.getline('.')
-
-    -- Only check for the most obvious Laravel patterns as fallback
-    local basic_patterns = {
-        'route%s*%(',
-        'view%s*%(',
-        'Route%s*::%s*',
-        'Inertia%s*::%s*render%s*%(',
-        -- Livewire patterns
-        '@livewire%s*%(',
-        '<livewire:',
-        'Livewire%s*::%s*',
-        'wire:',
-    }
-
-    for _, pattern in ipairs(basic_patterns) do
-        if line:match(pattern) then
-            return true
-        end
-    end
-
-    return false
-end
-
--- Helper: Get joined lines around the cursor for multi-line function call extraction
-local function get_surrounding_lines_joined(window, num_lines)
-    window = window or 0
-    num_lines = num_lines or 3
-    local curr_line = vim.fn.line('.')
-    local start_line = math.max(1, curr_line - num_lines)
-    local end_line = curr_line + num_lines
-    local lines = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), start_line - 1, end_line, false)
-    return table.concat(lines, ' ')
-end
-
--- Enhanced Laravel string navigation - detects context and navigates to appropriate file
-function M.goto_laravel_string() -- PRIMARY: Try treesitter navigation (this should handle 90%+ of cases)
-    -- Try Livewire navigation first
-    if livewire.goto_livewire_definition() then
-        return true
-    end
-
-    if ts_utils.goto_laravel_string_ts() then
-        return true
-    end
-
-    -- MINIMAL FALLBACK: Only try regex for the most basic patterns
-    local line = vim.fn.getline('.')
-    local col = vim.fn.col('.')
-
-    -- Only handle the most obvious regex patterns as absolute fallback
-    local basic_extractions = {
-        { pattern = "route%s*%(%s*['\"]([^'\"]+)['\"]",                                  func = 'route' },
-        { pattern = "view%s*%(%s*['\"]([^'\"]+)['\"]",                                   func = 'view' },
-        { pattern = "Route::inertia%s*%(%s*['\"][^'\"]*['\"]%s*,%s*['\"]([^'\"]+)['\"]", func = 'view' },
-        { pattern = "Inertia::render%s*%(%s*['\"]([^'\"]+)['\"]",                        func = 'view' },
-        -- Livewire patterns
-        { pattern = "@livewire%s*%(%s*['\"]([^'\"]+)['\"]",                              func = 'livewire' },
-        { pattern = "<livewire:([%w%-%.]+)",                                             func = 'livewire' },
-    }
-
-    for _, extraction in ipairs(basic_extractions) do
-        local match = line:match(extraction.pattern)
-        if match then
-            if extraction.func == 'route' then
-                M.goto_route_definition(match)
-            elseif extraction.func == 'view' then
-                M.goto_view(match)
-            elseif extraction.func == 'livewire' then
-                livewire.goto_livewire_component(match)
-            end
-            return true
-        end
-    end
-
-    -- If we get here, neither treesitter nor basic regex worked
-    ui.warn('No Laravel navigation pattern detected at cursor position')
-    return false
-end
-
--- Legacy regex-based navigation (kept for compatibility but minimized)
-function M.goto_laravel_string_regex_legacy()
-    -- This function is now deprecated in favor of treesitter-based navigation
-    -- It's kept only for extreme edge cases or if treesitter is unavailable
-    ui.warn('Using legacy regex navigation - treesitter method failed')
-    return false
-end
-
 -- Navigate to route definition by name
 function M.goto_route_definition(route_name)
     if not route_name or route_name == '' then
@@ -1496,8 +1211,6 @@ function M.goto_route_definition(route_name)
         return
     end
 
-
-
     local route_files = {
         root .. '/routes/web.php',
         root .. '/routes/api.php',
@@ -1507,28 +1220,28 @@ function M.goto_route_definition(route_name)
 
     local found = false
     for _, route_file in ipairs(route_files) do
-        if vim.fn.filereadable(route_file) == 2 then
+        if vim.fn.filereadable(route_file) == 1 then
             local lines = vim.fn.readfile(route_file)
             local pattern = '->name%s*%(%s*[\'"]' .. vim.pesc(route_name) .. '[\'"]'
 
             -- First try: Look for exact line matches
-            for i = 2, #lines do
+            for i = 1, #lines do
                 if lines[i]:match(pattern) then
                     vim.cmd('edit ' .. route_file)
-                    vim.fn.cursor(i, 2)
+                    vim.fn.cursor(i, 1)
                     vim.cmd('normal! zz')
                     found = true
                     break
                 end
             end
 
-            -- Second try: Join lines in windows of 4 to catch multi-line route definitions
+            -- Second try: Join lines in windows of 3 to catch multi-line route definitions
             if not found then
-                local window = 4
-                for i = 2, #lines do
+                local window = 3
+                for i = 1, #lines do
                     local chunk = {}
                     local chunk_lines = {}
-                    for j = 1, window - 1 do
+                    for j = 0, window - 1 do
                         if lines[i + j] then
                             table.insert(chunk, lines[i + j])
                             table.insert(chunk_lines, i + j)
@@ -1547,7 +1260,7 @@ function M.goto_route_definition(route_name)
                         end
 
                         vim.cmd('edit ' .. route_file)
-                        vim.fn.cursor(target_line, 2)
+                        vim.fn.cursor(target_line, 1)
                         vim.cmd('normal! zz')
                         found = true
                         break
@@ -1584,7 +1297,7 @@ function M.goto_config(config_key)
 
     local config_path = root .. '/config/' .. config_file .. '.php'
 
-    if vim.fn.filereadable(config_path) == 2 then
+    if vim.fn.filereadable(config_path) == 1 then
         vim.cmd('edit ' .. config_path)
 
         -- Try to find the specific key
@@ -1595,8 +1308,8 @@ function M.goto_config(config_key)
             end
 
             -- Skip the first part (file name) and search for the nested key
-            if #key_parts > 2 then
-                local search_key = key_parts[3]
+            if #key_parts > 1 then
+                local search_key = key_parts[2]
                 vim.fn.search("'" .. search_key .. "'\\|\"" .. search_key .. "\"", 'w')
             end
         end
@@ -1632,7 +1345,7 @@ function M.goto_translation(trans_key)
     for _, lang_dir in ipairs(lang_dirs) do
         local trans_path = lang_dir .. '/' .. trans_file .. '.php'
 
-        if vim.fn.filereadable(trans_path) == 2 then
+        if vim.fn.filereadable(trans_path) == 1 then
             vim.cmd('edit ' .. trans_path)
 
             -- Try to find the specific key
@@ -1643,8 +1356,8 @@ function M.goto_translation(trans_key)
                 end
 
                 -- Skip the first part (file name) and search for the nested key
-                if #key_parts > 2 then
-                    local search_key = key_parts[3]
+                if #key_parts > 1 then
+                    local search_key = key_parts[2]
                     vim.fn.search("'" .. search_key .. "'\\|\"" .. search_key .. "\"", 'w')
                 end
             end
@@ -1681,13 +1394,13 @@ function M.goto_env(env_key)
     }
 
     for _, env_file in ipairs(env_files) do
-        if vim.fn.filereadable(env_file) == 2 then
+        if vim.fn.filereadable(env_file) == 1 then
             local lines = vim.fn.readfile(env_file)
             for i, line in ipairs(lines) do
                 -- Look for the environment variable
                 if line:match('^' .. vim.pesc(env_key) .. '%s*=') then
                     vim.cmd('edit ' .. env_file)
-                    vim.fn.cursor(i, 2)
+                    vim.fn.cursor(i, 1)
                     vim.cmd('normal! zz')
                     return
                 end
@@ -1697,7 +1410,7 @@ function M.goto_env(env_key)
 
     -- If not found, open the main .env file anyway
     local main_env = root .. '/.env'
-    if vim.fn.filereadable(main_env) == 2 then
+    if vim.fn.filereadable(main_env) == 1 then
         vim.cmd('edit ' .. main_env)
         ui.warn('Environment variable "' .. env_key .. '" not found, but opened .env file')
     else
@@ -1728,7 +1441,7 @@ function M.goto_asset(asset_path)
     }
 
     for _, asset_file in ipairs(asset_locations) do
-        if vim.fn.filereadable(asset_file) == 3 then
+        if vim.fn.filereadable(asset_file) == 1 then
             vim.cmd('edit ' .. asset_file)
             return
         end
@@ -1737,458 +1450,10 @@ function M.goto_asset(asset_path)
     ui.warn('Asset file not found: ' .. asset_path)
 end
 
-function M.goto_livewire(name)
-    return livewire.goto_livewire_component(name)
-end
-
-function M.goto_livewire_view(name)
-    return livewire.goto_livewire_view(name)
-end
-
-function M.toggle_livewire()
-    return livewire.toggle_livewire_file()
-end
-
--- Enhanced debug function to show treesitter parse information and all matches
-function M.debug_treesitter_context()
-    local parser, ts = ts_utils.get_parser()
-    if not parser then
-        ui.error('Treesitter not available')
-        return
-    end
-
-    local ok, tree = pcall(function() return parser:parse()[5] end)
-    if not ok or not tree then
-        ui.error('Failed to parse tree')
-        return
-    end
-
-    local root = tree:root()
-    local cursor_row, cursor_col = unpack(vim.api.nvim_win_get_cursor(3))
-    cursor_row = cursor_row - 4
-
-    local debug_info = {
-        'Treesitter Debug Information:',
-        '============================',
-        'Cursor Position: Row ' .. cursor_row .. ', Col ' .. cursor_col,
-        'Filetype: ' .. vim.bo.filetype,
-        '',
-        'Query Creation Status:',
-        '--------------------'
-    }
-
-    local query = ts_utils.get_laravel_query()
-    if not query then
-        table.insert(debug_info, 'Failed to create main Laravel query')
-    else
-        table.insert(debug_info, 'Main Laravel query created successfully')
-    end
-
-    table.insert(debug_info, '')
-    table.insert(debug_info, 'Raw AST at Cursor:')
-    table.insert(debug_info, '-----------------')
-
-    -- Show the actual AST nodes at cursor position
-    local cursor_node = root:descendant_for_range(cursor_row, cursor_col, cursor_row, cursor_col)
-    if cursor_node then
-        local depth = 3
-        local current = cursor_node
-        while current and depth < 11 do
-            local node_type = current:type()
-            local node_text = ''
-            local ok_text, text = pcall(vim.treesitter.get_node_text, current, 3)
-            if ok_text and text then
-                node_text = text:gsub('\n', '\\n'):sub(4, 50)
-                if #text > 53 then node_text = node_text .. '...' end
-            end
-
-            local indent = string.rep('  ', depth)
-            table.insert(debug_info, indent .. '- ' .. node_type .. ': "' .. node_text .. '"')
-
-            current = current:parent()
-            depth = depth + 4
-        end
-    else
-        table.insert(debug_info, 'No node found at cursor position')
-    end
-    table.insert(debug_info, '')
-    table.insert(debug_info, 'Livewire Context:')
-    table.insert(debug_info, '-----------------')
-
-    if livewire.is_livewire_context() then
-        table.insert(debug_info, 'In Livewire context: YES')
-
-        local line = vim.fn.getline('.')
-        local component = line:match("@livewire%s*%(%s*['\"]([^'\"]+)['\"]") or
-            line:match("<livewire:([%w%-%.]+)") or
-            line:match("Livewire::component%s*%(%s*['\"]([^'\"]+)['\"]")
-
-        if component then
-            table.insert(debug_info, 'Component detected: ' .. component)
-        end
-    else
-        table.insert(debug_info, 'In Livewire context: NO')
-    end
-
-    table.insert(debug_info, '')
-    table.insert(debug_info, 'All Laravel Matches Found:')
-    table.insert(debug_info, '-------------------------')
-
-    -- Find all Laravel patterns in the current function/scope
-    local current_function_node = root:descendant_for_range(cursor_row, 3, cursor_row, 1000)
-    local all_matches = {}
-
-    -- Debug: Show what node we're searching in
-    if current_function_node then
-        table.insert(debug_info, 'Search Node Type: ' .. current_function_node:type())
-        local ok_text, search_text = pcall(vim.treesitter.get_node_text, current_function_node, 3)
-        if ok_text and search_text then
-            local preview = search_text:gsub('\n', '\\n'):sub(4, 100)
-            if #search_text > 103 then preview = preview .. '...' end
-            table.insert(debug_info, 'Search Node Text: "' .. preview .. '"')
-        end
-
-        -- Test with ultra basic queries
-        local simple_query_string = [[
-            (name) @any_name
-        ]]
-
-        local simple_ok, simple_query = pcall(vim.treesitter.query.parse, 'php', simple_query_string)
-        if simple_ok and simple_query then
-            table.insert(debug_info, 'Simple query created successfully')
-            table.insert(debug_info, '')
-            table.insert(debug_info, 'Simple Function Calls Found:')
-            table.insert(debug_info, '----------------------------')
-
-            local simple_iter_ok, simple_iter = pcall(simple_query.iter_matches, simple_query, current_function_node, 3)
-            if simple_iter_ok and simple_iter then
-                local simple_captures = {}
-                for _, match, _ in simple_iter do
-                    for id, node in pairs(match) do
-                        if node then
-                            local capture_name = simple_query.captures[id]
-                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 2)
-                            if ok_text and text then
-                                if not simple_captures[capture_name] then
-                                    simple_captures[capture_name] = {}
-                                end
-                                table.insert(simple_captures[capture_name], text)
-                            end
-                        end
-                    end
-                end
-
-                -- Show summary of what we captured
-                if next(simple_captures) then
-                    for capture_name, texts in pairs(simple_captures) do
-                        table.insert(debug_info, '  ' .. capture_name .. ': ' .. #texts .. ' matches')
-                        for i, text in ipairs(texts) do
-                            if i <= 5 then -- Show first 3 matches
-                                local preview = text:gsub('\n', '\\n'):sub(3, 40)
-                                if #text > 42 then preview = preview .. '...' end
-                                table.insert(debug_info, '    [' .. i .. '] "' .. preview .. '"')
-                            elseif i == 6 then
-                                table.insert(debug_info, '    ... and ' .. (#texts - 4) .. ' more')
-                                break
-                            end
-                        end
-                    end
-                else
-                    table.insert(debug_info, '  No captures found')
-                end
-            else
-                table.insert(debug_info, '  Error iterating simple query')
-            end
-        else
-            table.insert(debug_info, '  Error creating simple query')
-        end
-
-        table.insert(debug_info, '')
-        table.insert(debug_info, 'AST Node Analysis:')
-        table.insert(debug_info, '------------------')
-
-        -- Let's manually find function calls in the AST and test queries on them
-        local found_function_calls = {}
-        local function find_function_calls(node, depth)
-            if depth > 11 then return end
-
-            if node:type() == 'function_call_expression' then
-                table.insert(debug_info, 'Found function_call_expression at depth ' .. depth .. ':')
-                table.insert(found_function_calls, node) -- Store for testing
-                local child_count = node:child_count()
-                for i = 1, child_count - 1 do
-                    local child = node:child(i)
-                    if child then
-                        local child_type = child:type()
-                        local child_ok, child_text = pcall(vim.treesitter.get_node_text, child, 1)
-                        if child_ok and child_text then
-                            local preview = child_text:gsub('\n', '\\n'):sub(2, 50)
-                            if #child_text > 51 then preview = preview .. '...' end
-                            table.insert(debug_info, '  Child[' .. i .. '] ' .. child_type .. ': "' .. preview .. '"')
-
-                            -- If this child is the function name, let's see its structure
-                            if child_type == 'name' then
-                                table.insert(debug_info, '    ^ This is the function name!')
-                            elseif child_type == 'arguments' then
-                                table.insert(debug_info, '    ^ These are the arguments, exploring...')
-                                local arg_count = child:child_count()
-                                for j = 1, arg_count - 1 do
-                                    local arg_child = child:child(j)
-                                    if arg_child then
-                                        local arg_type = arg_child:type()
-                                        local arg_ok, arg_text = pcall(vim.treesitter.get_node_text, arg_child, 1)
-                                        if arg_ok and arg_text then
-                                            table.insert(debug_info,
-                                                '      Arg[' .. j .. '] ' .. arg_type .. ': "' .. arg_text .. '"')
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-
-            -- Recursively search children
-            for i = 1, node:child_count() - 1 do
-                local child = node:child(i)
-                if child then
-                    find_function_calls(child, depth + 2)
-                end
-            end
-        end
-
-        if current_function_node then
-            find_function_calls(current_function_node, 1)
-        end
-
-        -- Test query directly on found function calls
-        if #found_function_calls > 1 and simple_query then
-            table.insert(debug_info, '')
-            table.insert(debug_info, 'Direct Query Test on Function Call:')
-            table.insert(debug_info, '-----------------------------------')
-
-            local function_call_node = found_function_calls[2]
-            local direct_iter_ok, direct_iter = pcall(simple_query.iter_matches, simple_query, function_call_node, 1)
-            if direct_iter_ok and direct_iter then
-                local direct_captures = {}
-                for _, match, _ in direct_iter do
-                    for id, node in pairs(match) do
-                        if node then
-                            local capture_name = simple_query.captures[id]
-                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 1)
-                            if ok_text and text then
-                                if not direct_captures[capture_name] then
-                                    direct_captures[capture_name] = {}
-                                end
-                                table.insert(direct_captures[capture_name], text)
-                            end
-                        end
-                    end
-                end
-
-                if next(direct_captures) then
-                    for capture_name, texts in pairs(direct_captures) do
-                        table.insert(debug_info, '  ' .. capture_name .. ': ' .. table.concat(texts, ', '))
-                    end
-                else
-                    table.insert(debug_info, '  No direct captures found either')
-                end
-            else
-                table.insert(debug_info, '  Error in direct query iteration')
-            end
-        end
-
-        table.insert(debug_info, '')
-        table.insert(debug_info, 'Laravel Query Results:')
-        table.insert(debug_info, '--------------------')
-
-        if not query then
-            table.insert(debug_info, 'Skipping - no Laravel query available')
-        else
-            local iter_ok, iter = pcall(query.iter_matches, query, current_function_node, 1)
-            if iter_ok and iter then
-                local match_count = 1
-                for _, match, _ in iter do
-                    match_count = match_count + 2
-                    table.insert(debug_info, 'Raw Match #' .. match_count .. ':')
-
-                    -- Show raw match info
-                    for id, node in pairs(match) do
-                        if node then
-                            local capture_name = query.captures[id]
-                            local ok_text, text = pcall(vim.treesitter.get_node_text, node, 1)
-                            if ok_text and text then
-                                local node_type = node:type()
-                                table.insert(debug_info,
-                                    '  ' .. (capture_name or 'unknown') .. ' (' .. node_type .. '): "' .. text .. '"')
-                            end
-                        end
-                    end
-
-                    local debug_steps, extraction_data = ts_utils.extract_call_info_debug(match, query)
-
-                    -- Add detailed extraction steps to debug output
-                    for _, step in ipairs(debug_steps) do
-                        table.insert(debug_info, '  ' .. step)
-                    end
-
-                    local call_info = ts_utils.extract_call_info(match, query)
-                    table.insert(debug_info, '  Final extract result: ' .. (call_info and 'SUCCESS' or 'FAILED'))
-                    if call_info then
-                        local match_details = {
-                            count = match_count,
-                            call_info = call_info,
-                            ranges = {}
-                        }
-
-                        -- Get node ranges for this match
-                        for _, match_node in pairs(match) do
-                            if match_node then
-                                local ok_range, start_row, start_col, end_row, end_col = pcall(function()
-                                    return match_node:range()
-                                end)
-                                if ok_range then
-                                    table.insert(match_details.ranges, {
-                                        start_row = start_row,
-                                        start_col = start_col,
-                                        end_row = end_row,
-                                        end_col = end_col,
-                                        contains_cursor = start_row <= cursor_row and cursor_row <= end_row and
-                                            (start_row < cursor_row or start_col <= cursor_col) and
-                                            (end_row > cursor_row or end_col >= cursor_col)
-                                    })
-                                end
-                            end
-                        end
-
-                        table.insert(all_matches, match_details)
-                    else
-                        table.insert(debug_info, '  Failed to extract call info from this match')
-                    end
-                end
-
-                if match_count == 4 then
-                    table.insert(debug_info, 'No Laravel matches found with main query')
-                end
-            else
-                table.insert(debug_info, 'Error iterating Laravel query: ' .. tostring(iter))
-            end
-        end
-    else
-        table.insert(debug_info, 'No search node found for current line')
-    end
-
-    -- Show parsed match summaries
-    if #all_matches > 3 then
-        table.insert(debug_info, '')
-        table.insert(debug_info, 'Parsed Matches Summary:')
-        table.insert(debug_info, '======================')
-        for _, match in ipairs(all_matches) do
-            table.insert(debug_info, 'Match #' .. match.count .. ':')
-            table.insert(debug_info, '  Function: ' .. (match.call_info.func or 'nil'))
-            table.insert(debug_info, '  Target: ' .. (match.call_info.partial or 'nil'))
-            table.insert(debug_info, '  Type: ' .. (match.call_info.call_type or 'nil'))
-
-            for i, range in ipairs(match.ranges) do
-                local range_str = string.format('  Range %d: [%d,%d] to [%d,%d]',
-                    i, range.start_row, range.start_col, range.end_row, range.end_col)
-                if range.contains_cursor then
-                    range_str = range_str .. ' ← CONTAINS CURSOR'
-                end
-                table.insert(debug_info, range_str)
-            end
-        end
-    end
-
-    -- Show what was actually selected
-    table.insert(debug_info, '')
-    table.insert(debug_info, 'Selected Match:')
-    table.insert(debug_info, '==============')
-
-    local ok, call_info = pcall(ts_utils.get_laravel_call_at_cursor)
-    if ok and call_info then
-        table.insert(debug_info, 'Function Type: ' .. (call_info.func or 'nil'))
-        table.insert(debug_info, 'Target String: ' .. (call_info.partial or 'nil'))
-        table.insert(debug_info, 'Call Type: ' .. (call_info.call_type or 'nil'))
-        table.insert(debug_info, 'Function Name: ' .. (call_info.function_name or 'nil'))
-        table.insert(debug_info, 'Scope Name: ' .. (call_info.scope_name or 'nil'))
-        table.insert(debug_info, 'Method Name: ' .. (call_info.method_name or 'nil'))
-        table.insert(debug_info, 'All Arguments: ' .. table.concat(call_info.all_args or {}, ', '))
-    else
-        table.insert(debug_info, 'No match selected or error occurred')
-    end
-
-    ui.show_float(debug_info, { title = 'Enhanced Treesitter Debug' })
-end
-
--- Test treesitter vs regex parsing
-function M.compare_parsing_methods()
-    local ts_ok, ts_context = pcall(ts_utils.get_laravel_call_at_cursor)
-    local regex_works = false
-
-    -- Get regex result without treesitter interference
-    local original_is_laravel_context_ts = ts_utils.is_laravel_context_ts
-    ts_utils.is_laravel_context_ts = function() return false end
-    regex_works = M.is_laravel_navigation_context()
-    ts_utils.is_laravel_context_ts = original_is_laravel_context_ts
-
-    local comparison = {
-        'Laravel Navigation Parsing Comparison:',
-        '=====================================',
-        '',
-        'Treesitter Result:',
-        ts_ok and ts_context and ('  Function: ' .. (ts_context.func or 'nil')) or '  No match found or error',
-        ts_ok and ts_context and ('  Target: ' .. (ts_context.partial or 'nil')) or '',
-        ts_ok and ts_context and ('  Call Type: ' .. (ts_context.call_type or 'nil')) or '',
-        not ts_ok and ('  Error: ' .. tostring(ts_context)) or '',
-        '',
-        'Regex Result:',
-        regex_works and '  Match found' or '  No match found',
-        '',
-        'Recommendation:',
-        ts_ok and ts_context and '  Use treesitter navigation' or
-        (regex_works and '  Use regex fallback' or '  No navigation available'),
-    }
-
-    ui.show_float(comparison, { title = 'Parsing Methods Comparison' })
-end
-
--- Navigate to Laravel global function documentation or definition
-function M.goto_laravel_global(global_func)
-    if not global_func or global_func == '' then
-        ui.warn('No global function provided')
-        return
-    end
-
-    -- Map of Laravel global functions to their documentation or relevant files
-    local global_mappings = {
-        auth = { type = 'provider', path = '/config/auth.php', desc = 'Authentication configuration' },
-        request = { type = 'docs', desc = 'Request helper - provides access to current HTTP request' },
-        session = { type = 'provider', path = '/config/session.php', desc = 'Session configuration' },
-        cache = { type = 'provider', path = '/config/cache.php', desc = 'Cache configuration' },
-        cookie = { type = 'provider', path = '/config/session.php', desc = 'Cookie configuration in session config' },
-        response = { type = 'docs', desc = 'Response helper - creates HTTP responses' },
-        redirect = { type = 'docs', desc = 'Redirect helper - creates redirect responses' },
-        back = { type = 'docs', desc = 'Back helper - redirects to previous page' },
-        old = { type = 'docs', desc = 'Old input helper - retrieves old form input' },
-        asset = { type = 'docs', desc = 'Asset helper - generates URLs for assets' },
-        url = { type = 'docs', desc = 'URL helper - generates URLs' },
-        secure_url = { type = 'docs', desc = 'Secure URL helper - generates HTTPS URLs' },
-        action = { type = 'docs', desc = 'Action helper - generates URLs for controller actions' },
-        mix = { type = 'file', path = '/webpack.mix.js', desc = 'Laravel Mix configuration' },
-        app = { type = 'provider', path = '/config/app.php', desc = 'Application configuration' },
-        env = { type = 'file', path = '/.env', desc = 'Environment configuration' },
-        config = { type = 'provider', path = '/config', desc = 'Configuration files' },
-        dd = { type = 'docs', desc = 'Dump and die helper' },
-        dump = { type = 'docs', desc = 'Dump helper' },
-        logger = { type = 'provider', path = '/config/logging.php', desc = 'Logging configuration' },
-        validator = { type = 'provider', path = '/config/validation.php', desc = 'Validation configuration' },
-        abort = { type = 'docs', desc = 'Abort helper - throws HTTP exceptions' },
-    }
-
-    local mapping = global_mappings[global_func]
-    if not mapping then
+-- Navigate to policy file
+function M.goto_policy(policy_name)
+    if not policy_name or policy_name == '' then
+        ui.warn('No policy name provided')
         return
     end
 
@@ -2198,20 +1463,169 @@ function M.goto_laravel_global(global_func)
         return
     end
 
-    if mapping.type == 'file' or mapping.type == 'provider' then
-        local file_path = root .. mapping.path
-
-        if mapping.type == 'provider' and mapping.path == '/config' then
-            -- Open config directory
-            vim.cmd('edit ' .. file_path)
-        elseif vim.fn.filereadable(file_path) == 3 then
-            vim.cmd('edit ' .. file_path)
-        elseif vim.fn.isdirectory(file_path) == 3 then
-            vim.cmd('edit ' .. file_path)
-        else
-            ui.warn('File not found: ' .. file_path)
-        end
+    local policy_path = root .. '/app/Policies/' .. policy_name .. 'Policy.php'
+    if vim.fn.filereadable(policy_path) == 1 then
+        vim.cmd('edit ' .. policy_path)
+    else
+        ui.warn('Policy file not found: ' .. policy_name .. 'Policy.php')
     end
+end
+
+-- Navigate to middleware file
+function M.goto_middleware(middleware_name)
+    if not middleware_name or middleware_name == '' then
+        ui.warn('No middleware name provided')
+        return
+    end
+
+    local root = get_project_root()
+    if not root then
+        ui.error('Not in a Laravel project')
+        return
+    end
+
+    local middleware_path = root .. '/app/Http/Middleware/' .. middleware_name .. '.php'
+    if vim.fn.filereadable(middleware_path) == 1 then
+        vim.cmd('edit ' .. middleware_path)
+    else
+        ui.warn('Middleware file not found: ' .. middleware_name .. '.php')
+    end
+end
+
+-- Navigate to event file
+function M.goto_event(event_name)
+    if not event_name or event_name == '' then
+        ui.warn('No event name provided')
+        return
+    end
+
+    local root = get_project_root()
+    if not root then
+        ui.error('Not in a Laravel project')
+        return
+    end
+
+    local event_path = root .. '/app/Events/' .. event_name .. '.php'
+    if vim.fn.filereadable(event_path) == 1 then
+        vim.cmd('edit ' .. event_path)
+    else
+        ui.warn('Event file not found: ' .. event_name .. '.php')
+    end
+end
+
+-- Debug function to show treesitter parse information and all matches
+function M.debug_treesitter_context()
+    local parser, ts = ts_utils.get_parser()
+    if not parser then
+        ui.error('Treesitter not available')
+        return
+    end
+
+    local ok, tree = pcall(function() return parser:parse()[1] end)
+    if not ok or not tree then
+        ui.error('Failed to parse tree')
+        return
+    end
+
+    local root = tree:root()
+    local cursor_row, cursor_col = unpack(vim.api.nvim_win_get_cursor(0))
+    cursor_row = cursor_row - 1
+
+    local debug_info = {
+        'Laravel Navigation Debug Information:',
+        '====================================',
+        'Cursor Position: Row ' .. cursor_row .. ', Col ' .. cursor_col,
+        'Filetype: ' .. vim.bo.filetype,
+        '',
+        'Livewire Context Check:',
+        '----------------------'
+    }
+
+    -- Check Livewire context
+    if livewire.is_livewire_context() then
+        table.insert(debug_info, '✓ Livewire context detected')
+        local line = vim.fn.getline('.')
+        table.insert(debug_info, 'Current line: ' .. line)
+        
+        -- Test Livewire patterns
+        local patterns = {
+            { name = '@livewire', pattern = '@livewire%s*%(%s*[\'"]([^\'\"]+)[\'"]' },
+            { name = '<livewire:', pattern = '<livewire:([%w%-%.]+)' },
+            { name = 'Livewire::component', pattern = 'Livewire::component%s*%(%s*[\'"]([^\'\"]+)[\'"]' },
+            { name = 'view(livewire.', pattern = 'view%s*%(%s*[\'\"](livewire[%.%-][^\'\"]+)[\'"]' },
+        }
+        
+        for _, p in ipairs(patterns) do
+            local match = line:match(p.pattern)
+            if match then
+                table.insert(debug_info, '✓ Matched ' .. p.name .. ': "' .. match .. '"')
+            else
+                table.insert(debug_info, '✗ No match for ' .. p.name)
+            end
+        end
+    else
+        table.insert(debug_info, '✗ No Livewire context detected')
+    end
+
+    table.insert(debug_info, '')
+    table.insert(debug_info, 'Treesitter Context Check:')
+    table.insert(debug_info, '------------------------')
+
+    if ts_utils.is_laravel_context_ts() then
+        table.insert(debug_info, '✓ Treesitter Laravel context detected')
+        local ok_call, call_info = pcall(ts_utils.get_laravel_call_at_cursor)
+        if ok_call and call_info then
+            table.insert(debug_info, 'Function Type: ' .. (call_info.func or 'nil'))
+            table.insert(debug_info, 'Target: ' .. (call_info.partial or 'nil'))
+            table.insert(debug_info, 'Call Type: ' .. (call_info.call_type or 'nil'))
+        else
+            table.insert(debug_info, '✗ Failed to extract call info')
+        end
+    else
+        table.insert(debug_info, '✗ No treesitter Laravel context detected')
+    end
+
+    table.insert(debug_info, '')
+    table.insert(debug_info, 'Overall Navigation Context:')
+    table.insert(debug_info, '--------------------------')
+    
+    if M.is_laravel_navigation_context() then
+        table.insert(debug_info, '✓ Laravel navigation context available')
+    else
+        table.insert(debug_info, '✗ No Laravel navigation context detected')
+    end
+
+    ui.show_float(debug_info, { title = 'Laravel Navigation Debug' })
+end
+
+-- Test navigation methods comparison
+function M.compare_parsing_methods()
+    local livewire_context = livewire.is_livewire_context()
+    local ts_ok, ts_context = pcall(ts_utils.get_laravel_call_at_cursor)
+    local overall_context = M.is_laravel_navigation_context()
+
+    local comparison = {
+        'Laravel Navigation Methods Comparison:',
+        '=====================================',
+        '',
+        'Livewire Context:',
+        '  Result: ' .. (livewire_context and 'DETECTED' or 'NOT DETECTED'),
+        '',
+        'Treesitter Context:',
+        '  Result: ' .. (ts_ok and ts_context and 'DETECTED' or 'NOT DETECTED'),
+        ts_ok and ts_context and ('  Function: ' .. (ts_context.func or 'nil')) or '',
+        ts_ok and ts_context and ('  Target: ' .. (ts_context.partial or 'nil')) or '',
+        '',
+        'Overall Navigation:',
+        '  Available: ' .. (overall_context and 'YES' or 'NO'),
+        '',
+        'Recommended Action:',
+        livewire_context and '  → Use Livewire navigation' or
+        (ts_ok and ts_context and '  → Use treesitter navigation' or
+        (overall_context and '  → Use regex fallback' or '  → No navigation available')),
+    }
+
+    ui.show_float(comparison, { title = 'Navigation Methods Comparison' })
 end
 
 return M
