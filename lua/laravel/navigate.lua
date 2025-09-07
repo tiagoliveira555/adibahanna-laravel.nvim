@@ -775,21 +775,21 @@ function M.is_laravel_navigation_context()
         'env%s*%(',
         'asset%s*%(',
         'url%s*%(',
-        
+
         -- Facades
         'Route%s*::%s*',
         'View%s*::%s*',
         'Config%s*::%s*',
         'Inertia%s*::%s*',
         'Livewire%s*::%s*',
-        
+
         -- Livewire specific patterns
         '@livewire%s*%(',
         '<livewire:',
         'wire:',
         '%$wire',
         '@entangle%s*%(',
-        
+
         -- Blade directives
         '@yield%s*%(',
         '@section%s*%(',
@@ -827,10 +827,10 @@ function M.goto_laravel_string()
 
     -- Enhanced Livewire patterns detection
     local livewire_patterns = {
-        { pattern = "@livewire%s*%(%s*['\"]([^'\"]+)['\"]",                              func = 'livewire' },
-        { pattern = "<livewire:([%w%-%.]+)",                                             func = 'livewire' },
-        { pattern = "Livewire::component%s*%(%s*['\"]([^'\"]+)['\"]",                    func = 'livewire' },
-        { pattern = "Livewire::render%s*%(%s*['\"]([^'\"]+)['\"]",                      func = 'livewire' },
+        { pattern = "@livewire%s*%(%s*['\"]([^'\"]+)['\"]",           func = 'livewire' },
+        { pattern = "<livewire:([%w%-%.]+)",                          func = 'livewire' },
+        { pattern = "Livewire::component%s*%(%s*['\"]([^'\"]+)['\"]", func = 'livewire' },
+        { pattern = "Livewire::render%s*%(%s*['\"]([^'\"]+)['\"]",    func = 'livewire' },
     }
 
     -- Check Livewire patterns first
@@ -895,27 +895,27 @@ function M.find_controllers()
     end
 
     local controllers = {}
+
     local function scan_directory(dir, namespace)
         namespace = namespace or 'App\\Http\\Controllers'
 
-        -- Check if directory exists
+        -- Verifica se o diretório existe
         if vim.fn.isdirectory(dir) ~= 1 then
             return
         end
 
         local items = vim.fn.readdir(dir)
-        if not items then
-            return
-        end
+        if not items then return end
 
         for _, item in ipairs(items) do
             local full_path = dir .. '/' .. item
 
             if vim.fn.isdirectory(full_path) == 1 then
-                -- Recursively scan subdirectories
+                -- Chamada recursiva para subdiretórios
                 scan_directory(full_path, namespace .. '\\' .. item)
-            elseif item:match('%.php) and item:match('Controller%.php) then
-                local class_name = item:gsub('%.php, '')
+            elseif item:match('Controller%.php$') then
+                -- Remove a extensão .php para o nome da classe
+                local class_name = item:gsub('%.php$', '')
                 controllers[#controllers + 1] = {
                     name = class_name,
                     namespace = namespace .. '\\' .. class_name,
@@ -938,20 +938,15 @@ function M.find_models()
     local app_path = root .. '/app'
 
     local models = {}
-    local seen_names = {} -- Track seen model names to prevent duplicates
+    local seen_names = {} -- Evita duplicados
 
     local function scan_directory(dir, namespace, is_models_dir)
         namespace = namespace or 'App'
 
-        -- Check if directory exists
-        if vim.fn.isdirectory(dir) ~= 1 then
-            return
-        end
+        if vim.fn.isdirectory(dir) ~= 1 then return end
 
         local items = vim.fn.readdir(dir)
-        if not items then
-            return
-        end
+        if not items then return end
 
         for _, item in ipairs(items) do
             local full_path = dir .. '/' .. item
@@ -961,27 +956,24 @@ function M.find_models()
                     -- Scan Models directory
                     scan_directory(full_path, namespace .. '\\Models', true)
                 elseif not item:match('^[A-Z]') and not is_models_dir then
-                    -- Skip non-capitalized directories in app root (like Http, Console, etc.)
-                    -- unless we're already in Models directory
+                    -- Ignora diretórios que não começam com maiúscula no app root
                 else
-                    -- Recursively scan subdirectories
+                    -- Scan recursivo
                     scan_directory(full_path, namespace .. '\\' .. item, is_models_dir)
                 end
-            elseif item:match('%.php) then
-                local class_name = item:gsub('%.php, '')
+            elseif item:match('%.php$') then
+                local class_name = item:gsub('%.php$', '')
 
-                -- Skip if we've already seen this model name
                 if seen_names[class_name] then
                     goto continue
                 end
 
-                -- Check if this looks like a model
                 local is_model = false
                 if is_models_dir then
                     is_model = true
                 elseif dir == app_path then
-                    -- Check if it's a model in the app root (Laravel < 8 style)
-                    local content = vim.fn.readfile(full_path, '', 10) -- Read first 10 lines
+                    -- Verifica se é um model no app root (Laravel < 8)
+                    local content = vim.fn.readfile(full_path, '', 10) -- primeiras 10 linhas
                     for _, line in ipairs(content) do
                         if line:match('extends.*Model') or line:match('use.*Model') then
                             is_model = true
@@ -1004,13 +996,11 @@ function M.find_models()
         end
     end
 
-    -- First scan Models directory (Laravel 8+) - prioritize this
+    -- Scan Models directory primeiro (Laravel 8+)
     if vim.fn.isdirectory(models_path) == 1 then
         scan_directory(models_path, 'App\\Models', true)
-    end
-
-    -- Only scan app root for models (Laravel < 8) if Models directory doesn't exist
-    if vim.fn.isdirectory(models_path) == 0 then
+    else
+        -- Scan app root para Laravel < 8
         scan_directory(app_path, 'App', false)
     end
 
@@ -1546,15 +1536,15 @@ function M.debug_treesitter_context()
         table.insert(debug_info, '✓ Livewire context detected')
         local line = vim.fn.getline('.')
         table.insert(debug_info, 'Current line: ' .. line)
-        
+
         -- Test Livewire patterns
         local patterns = {
-            { name = '@livewire', pattern = '@livewire%s*%(%s*[\'"]([^\'\"]+)[\'"]' },
-            { name = '<livewire:', pattern = '<livewire:([%w%-%.]+)' },
+            { name = '@livewire',           pattern = '@livewire%s*%(%s*[\'"]([^\'\"]+)[\'"]' },
+            { name = '<livewire:',          pattern = '<livewire:([%w%-%.]+)' },
             { name = 'Livewire::component', pattern = 'Livewire::component%s*%(%s*[\'"]([^\'\"]+)[\'"]' },
-            { name = 'view(livewire.', pattern = 'view%s*%(%s*[\'\"](livewire[%.%-][^\'\"]+)[\'"]' },
+            { name = 'view(livewire.',      pattern = 'view%s*%(%s*[\'\"](livewire[%.%-][^\'\"]+)[\'"]' },
         }
-        
+
         for _, p in ipairs(patterns) do
             local match = line:match(p.pattern)
             if match then
@@ -1588,7 +1578,7 @@ function M.debug_treesitter_context()
     table.insert(debug_info, '')
     table.insert(debug_info, 'Overall Navigation Context:')
     table.insert(debug_info, '--------------------------')
-    
+
     if M.is_laravel_navigation_context() then
         table.insert(debug_info, '✓ Laravel navigation context available')
     else
@@ -1622,7 +1612,7 @@ function M.compare_parsing_methods()
         'Recommended Action:',
         livewire_context and '  → Use Livewire navigation' or
         (ts_ok and ts_context and '  → Use treesitter navigation' or
-        (overall_context and '  → Use regex fallback' or '  → No navigation available')),
+            (overall_context and '  → Use regex fallback' or '  → No navigation available')),
     }
 
     ui.show_float(comparison, { title = 'Navigation Methods Comparison' })
