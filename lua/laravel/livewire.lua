@@ -102,10 +102,12 @@ end
 -- Go to definition depending on Livewire context
 function M.goto_livewire_definition()
     local line = vim.fn.getline('.')
+    print("DEBUG line: " .. line)
 
     -- @livewire('component')
     local component = line:match("@livewire%s*%(%s*['\"]([^'\"]+)['\"]")
     if component then
+        print("DEBUG matched @livewire: " .. component)
         M.goto_livewire_component(component)
         return true
     end
@@ -113,6 +115,7 @@ function M.goto_livewire_definition()
     -- <livewire:component />
     component = line:match("<livewire:([%w%-%.]+)")
     if component then
+        print("DEBUG matched <livewire:>: " .. component)
         M.goto_livewire_component(component)
         return true
     end
@@ -120,6 +123,7 @@ function M.goto_livewire_definition()
     -- Livewire::component('name', Class::class)
     component = line:match("Livewire::component%s*%(%s*['\"]([^'\"]+)['\"]")
     if component then
+        print("DEBUG matched Livewire::component: " .. component)
         M.goto_livewire_component(component)
         return true
     end
@@ -127,16 +131,20 @@ function M.goto_livewire_definition()
     -- return view('livewire.xxx')
     local view = line:match("view%s*%(%s*['\"](livewire[%.%-][^'\"]+)['\"]")
     if view then
+        print("DEBUG matched view: " .. view)
         local path = M.resolve_view_path(view)
         if path then
+            print("DEBUG resolved view path: " .. path)
             vim.cmd("edit " .. path)
             return true
+        else
+            print("DEBUG could not resolve view path for: " .. view)
         end
     end
 
+    print("DEBUG no match found")
     return false
 end
-
 -- =========================================================
 -- Component & View Navigation
 -- =========================================================
