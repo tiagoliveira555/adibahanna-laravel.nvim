@@ -118,19 +118,46 @@ function M.goto_livewire_view(component_name)
 end
 
 -- Check if current line is Livewire-related
+-- Check if cursor is in a Livewire context
 function M.is_livewire_context()
     local line = vim.fn.getline('.')
-    local patterns = {
-        '@livewire%s*%(',
-        '<livewire:([%w%-%.]+)',
-        'Livewire::component%s*%(',
+
+    -- PHP: return view('livewire.something')
+    if line:match("view%s*%(%s*['\"]livewire[%.%-][^'\"]+['\"]") then
+        return true
+    end
+
+    -- Blade: <livewire:component-name />
+    if line:match("<livewire:([%w%-%.]+)") then
+        return true
+    end
+
+    -- Blade/Directive: @livewire('component-name')
+    if line:match("@livewire%s*%(%s*['\"][^'\"]+['\"]") then
+        return true
+    end
+
+    -- Existing patterns (wire:, $wire, etc.)
+    local php_patterns = {
+        'Livewire::',
+        '@livewireScripts',
+        '@livewireStyles',
+        '<livewire:',
         'wire:',
-        'view%s*%(%s*["\']livewire%.',
+        '%$wire',
+        '@entangle%s*%(',
+        '%$dispatch%s*%(',
+        '%$set%s*%(',
+        '%$toggle%s*%(',
+        '%$emit%s*%(',
     }
 
-    for _, p in ipairs(patterns) do
-        if line:match(p) then return true end
+    for _, pattern in ipairs(php_patterns) do
+        if line:match(pattern) then
+            return true
+        end
     end
+
     return false
 end
 
