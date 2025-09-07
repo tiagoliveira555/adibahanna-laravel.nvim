@@ -52,14 +52,12 @@ local function setup_laravel_keymaps()
             local bufnr = vim.api.nvim_get_current_buf()
             local bufopts = { noremap = true, silent = true, buffer = bufnr }
 
-            -- Go to definition: Laravel strings, Livewire, or LSP
-            local bufopts = { noremap = true, silent = true }
-
-            -- Keymap: Go to definition with Laravel + Livewire support
+            -- Enhanced gd mapping for Laravel string navigation
             vim.keymap.set('n', 'gd', function()
-                -- Make sure we're inside a Laravel project
+                print("DEBUG: gd triggered")
+
                 if not (_G.laravel_nvim and _G.laravel_nvim.project_root) then
-                    -- Not a Laravel project, just use LSP or Vim fallback
+                    print("DEBUG: not a Laravel project, fallback to LSP")
                     if vim.lsp.buf.definition then
                         vim.lsp.buf.definition()
                     else
@@ -71,29 +69,27 @@ local function setup_laravel_keymaps()
                 local livewire = require('laravel.livewire')
                 local navigate = require('laravel.navigate')
 
-                -- 1. Always try Livewire navigation first
-                --    (handles @livewire, <livewire:>, Livewire::component, and view('livewire.xxx'))
+                print("DEBUG: trying livewire.goto_livewire_definition()")
                 local ok, result = pcall(livewire.goto_livewire_definition)
+                print("DEBUG livewire result:", ok, result)
                 if ok and result then
                     return
                 end
 
-                -- 2. If not Livewire, check for generic Laravel navigation patterns
+                print("DEBUG: trying navigate.goto_laravel_string()")
                 local ok_nav, result_nav = pcall(navigate.goto_laravel_string)
+                print("DEBUG navigate result:", ok_nav, result_nav)
                 if ok_nav and result_nav then
                     return
                 end
 
-                -- 3. Fallback: use LSP if available
+                print("DEBUG: falling back to LSP")
                 if vim.lsp.buf.definition then
                     vim.lsp.buf.definition()
                 else
-                    -- 4. Final fallback: Vim's built-in "gd"
                     vim.cmd('normal! gd')
                 end
-            end, {
-                desc = 'Laravel: Go to definition (Livewire, Laravel strings, or LSP)',
-            })
+            end, { desc = 'Laravel: Go to definition (Livewire, Laravel strings, or LSP)' })
 
             -- Laravel-specific navigation with <leader>L prefix
             vim.keymap.set('n', '<leader>Lc', function()
